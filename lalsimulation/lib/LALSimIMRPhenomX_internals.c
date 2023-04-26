@@ -1661,7 +1661,7 @@ int IMRPhenomXGetPhaseCoefficients(
 	pPhase->phi4  = ( 15293365/508032. + (27145*eta)/504. + (3085*eta2)/72. ) * powers_of_lalpi.four_thirds ;
 
 	/* 2.0 PN, Spin-Spin */
-	pPhase->phi4 +=  (0.25*(chi1L - chi2L)*(chi1L + chi2L)*(-50.0 * (qm_def1 - qm_def2) + 100.0*eta*(qm_def1 - qm_def2)) + 0.25*(chi1L + chi2L)*(chi1L + chi2L)*(-(5/8.) - (195*eta)/2. - 25*(qm_def1 + qm_def2)+50.0*eta*(qm_def1 + qm_def2)) + 0.25*(chi1L - chi2L)*(chi1L - chi2L)* (-(5./8) + 100*eta - 25*(qm_def1 + qm_def2) + 50.0*eta*(qm_def1 + qm_def2)) + delta*(-6.25*(chi1L - chi2L)*(chi1L - chi2L)*(qm_def1 - qm_def2) - 6.25*(chi1L + chi2L)*(chi1L + chi2L)*(qm_def1 - qm_def2) + 0.25*(chi1L - chi2L)*(chi1L + chi2L)*(-(5./4) - 50.0*(qm_def1 + qm_def2))))*powers_of_lalpi.four_thirds;
+	pPhase->phi4 +=  ((-5*(316*chi1L2L*eta + chi1L2*(1 + delta - 2*eta)*(1 + 80*(qm_def1)) - chi2L2*(-1 + delta + 2*eta)*(1 + 80*(qm_def2))))/16)*powers_of_lalpi.four_thirds;
 
 	/* 2.5PN, Non-Spinning */
 	pPhase->phi5L  = ( (5*(46374 - 6552*eta)*LAL_PI)/4536. ) * powers_of_lalpi.five_thirds;
@@ -1677,7 +1677,7 @@ int IMRPhenomXGetPhaseCoefficients(
    (640*powers_of_lalpi.two)/3. + (2255*eta*powers_of_lalpi.two)/12. - (13696*log(2))/21. - (6848*powers_of_lalpi.log)/63. )  * powers_of_lalpi.two;
 
 	/* 3.0 PN, Spin-Orbit */
-	pPhase->phi6  +=  (chi1L*chi2L*((32675*eta)/112 + (5575*eta*eta)/18) + chi1L*chi1L*(-1344475/4032 - (1344475*delta)/4032 + (1365335*eta)/2016 + (745*delta*eta)/72 + (1255*eta*eta)/36 + (26015*(qm_def1 - qm_def2))/112 + (26015*delta*(qm_def1 - qm_def2))/112 - (44255*eta*(qm_def1 - qm_def2))/84 - (1495*delta*eta*(qm_def1 - qm_def2))/24 - 60*eta*eta*(qm_def1 - qm_def2) + (26015*(qm_def1 + qm_def2))/112 + (26015*delta*(qm_def1 + qm_def2))/112 - (44255*eta*(qm_def1 + qm_def2))/84 - (1495*delta*eta*(qm_def1 + qm_def2))/24 - 60*eta*eta*(qm_def1 + qm_def2)) + chi2L*chi2L*(-1344475/4032 + (1344475*delta)/4032 + (1365335*eta)/2016 - (745*delta*eta)/72 + (1255*eta*eta)/36 - (26015*(qm_def1 - qm_def2))/112 + (26015*delta*(qm_def1 - qm_def2))/112 + (44255*eta*(qm_def1 - qm_def2))/84 - (1495*delta*eta*(qm_def1 - qm_def2))/24 + 60*eta*eta*(qm_def1 - qm_def2) + (26015*(qm_def1 + qm_def2))/112 - (26015*delta*(qm_def1 + qm_def2))/112 - (44255*eta*(qm_def1 + qm_def2))/84 + (1495*delta*eta*(qm_def1 + qm_def2))/24 - 60*eta*eta*(qm_def1 + qm_def2)) + chi2L*((1135*(LAL_PI))/3 - (1135*delta*(LAL_PI))/3 - 260*eta*(LAL_PI)) + chi1L*((1135*(LAL_PI))/3 + (1135*delta*(LAL_PI))/3 - 260*eta*(LAL_PI)))* powers_of_lalpi.two;
+	pPhase->phi6  +=  ((-5*(-4*chi1L*(chi2L*(58815*eta + 62440*eta2) + 336*(227 + 227*delta - 156*eta)*(LAL_PI)) + chi1L2*(268895 - 546134*eta - 28112*eta2 - 374616*(qm_def1) + 849696*eta*(qm_def1) + 96768*eta2*(qm_def1) + delta*(268895 - 374616*(qm_def1) + 56*eta*(-149 + 1794*(qm_def1)))) + chi2L*(1344*(-227 + 227*delta + 156*eta)*(LAL_PI) + chi2L*(268895 - 546134*eta - 28112*eta2 - 374616*(qm_def2) + 849696*eta*(qm_def2) + 96768*eta2*(qm_def2) + delta*(-268895 + 8344*eta + 374616*(qm_def2) - 100464*eta*(qm_def2))))))/4032)* powers_of_lalpi.two;
 
 
 	/* pPhase->phi6  += ( (5*(227*(chi1L + chi2L + chi1L*delta - chi2L*delta) - 156*(chi1L + chi2L)*eta)*LAL_PI)/3. ) * powers_of_lalpi.two;
