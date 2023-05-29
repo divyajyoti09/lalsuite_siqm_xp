@@ -1677,16 +1677,12 @@ int IMRPhenomXGetPhaseCoefficients(
    (640*powers_of_lalpi.two)/3. + (2255*eta*powers_of_lalpi.two)/12. - (13696*log(2))/21. - (6848*powers_of_lalpi.log)/63. )  * powers_of_lalpi.two;
 
 	/* 3.0 PN, Spin-Orbit */
-	pPhase->phi6  +=  ((-5*(-4*chi1L*(chi2L*(58815*eta + 62440*eta2) + 336*(227 + 227*delta - 156*eta)*(LAL_PI)) + chi1L2*(268895 - 546134*eta - 28112*eta2 - 374616*(qm_def1) + 849696*eta*(qm_def1) + 96768*eta2*(qm_def1) + delta*(268895 - 374616*(qm_def1) + 56*eta*(-149 + 1794*(qm_def1)))) + chi2L*(1344*(-227 + 227*delta + 156*eta)*(LAL_PI) + chi2L*(268895 - 546134*eta - 28112*eta2 - 374616*(qm_def2) + 849696*eta*(qm_def2) + 96768*eta2*(qm_def2) + delta*(-268895 + 8344*eta + 374616*(qm_def2) - 100464*eta*(qm_def2))))))/4032)* powers_of_lalpi.two;
+	pPhase->phi6  += ( (5*(227*(chi1L + chi2L + chi1L*delta - chi2L*delta) - 156*(chi1L + chi2L)*eta)*LAL_PI)/3. ) * powers_of_lalpi.two;
 
+	/* 3.0 PN, Spin-Spin */
+	pPhase->phi6  += ( (5*(20*chi1L2L*(11763*eta + 12488*eta2) + chi1L2*(-268895 - 268895*delta + 546134*eta + 8344*delta*eta + 28112*eta2 - 24*(-15609 + 35404*eta + delta*(-15609 + 4186*eta) + 4032*eta2)*(qm_def1)) + chi2L2*(-268895 + 268895*delta + 546134*eta - 8344*delta*eta + 28112*eta2 + 24*(15609 - 35404*eta + delta*(-15609 + 4186*eta) - 4032*eta2)*(qm_def2))))/4032 ) * powers_of_lalpi.two;
 
-	/* pPhase->phi6  += ( (5*(227*(chi1L + chi2L + chi1L*delta - chi2L*delta) - 156*(chi1L + chi2L)*eta)*LAL_PI)/3. ) * powers_of_lalpi.two;
-
-	3.0 PN, Spin-Spin  
-	pPhase->phi6  += ( (5*(20*chi1L2L*eta*(11763 + 12488*eta) + 7*chi2L2*(-15103*(-1 + delta) + 2*(-21683 + 6580*delta)*eta - 9808*eta2) -
-       7*chi1L2*(-15103*(1 + delta) + 2*(21683 + 6580*delta)*eta + 9808*eta2)))/4032. ) * powers_of_lalpi.two;
-
-	 3.0 PN, Log Term */
+	/* 3.0 PN, Log Term */
 	pPhase->phi6L  = (-6848/63.) * powers_of_lalpi.two;
 
 	/* 3.5PN, Non-Spinning */
