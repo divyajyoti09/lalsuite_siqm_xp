@@ -4833,19 +4833,13 @@ int XLALSimInspiralApproximantAcceptTestGRParams(Approximant approx){
     case IMRPhenomHM:
     case IMRPhenomPv3:
     case IMRPhenomPv3HM:
-<<<<<<< HEAD
-=======
     case pSEOBNRv4HM_PA:
->>>>>>> d844031804e64c47dd743c4f451ecd55a8fb4ec0
     case IMRPhenomXAS:
     case IMRPhenomXHM:
     case IMRPhenomXP:
     case IMRPhenomXPHM:
-<<<<<<< HEAD
-=======
     case IMRPhenomXAS_NRTidalv2:
     case IMRPhenomXP_NRTidalv2:
->>>>>>> d844031804e64c47dd743c4f451ecd55a8fb4ec0
       testGR_accept=LAL_SIM_INSPIRAL_TESTGR_PARAMS;
       break;
     case ExternalPython:
