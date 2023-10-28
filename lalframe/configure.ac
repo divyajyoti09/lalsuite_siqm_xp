@@ -1,5 +1,5 @@
 AC_PREREQ([2.63])
-AC_INIT([LALFrame],[3.0.0.1],[lal-discuss@ligo.org])
+AC_INIT([LALFrame],[3.0.3.1],[lal-discuss@ligo.org])
 AC_CONFIG_HEADERS([lib/config.h lib/LALFrameConfig.h])
 AC_CONFIG_SRCDIR([lib/LALFrameIO.c])
 AC_CONFIG_AUX_DIR([gnuscripts])
@@ -20,7 +20,7 @@ AC_CONFIG_MACRO_DIR([gnuscripts])
 # 6. if any interfaces have been removed since the last public release,
 #    then set age to 0.
 AC_SUBST([LIBCURRENT],[14])
-AC_SUBST([LIBREVISION],[0])
+AC_SUBST([LIBREVISION],[1])
 AC_SUBST([LIBAGE],[0])
 AC_SUBST([LIBVERSION],[${LIBCURRENT}:${LIBREVISION}:${LIBAGE}])
 AS_CASE([${host_os}],
@@ -37,7 +37,6 @@ AC_CONFIG_FILES([ \
   debian/control \
   debian/liblalframe${LIBMAJOR}.install:debian/liblalframe.install.in \
   doxygen/Makefile \
-  doxygen/doxygen.cfg \
   include/Makefile \
   include/lal/Makefile \
   lalframe.pc \
@@ -69,7 +68,7 @@ AM_INIT_AUTOMAKE([ \
 ])
 
 # version requirements
-MIN_LAL_VERSION="7.3.0"
+MIN_LAL_VERSION="7.4.0"
 MIN_FRAMECPPC_VERSION="2.5.5"
 MIN_FRAMEL_VERSION="8.39.2"
 AC_SUBST([MIN_LAL_VERSION])
@@ -83,6 +82,7 @@ LALSUITE_ARG_VAR
 LALSUITE_CHECK_PLATFORM
 LALSUITE_CHECK_GIT_REPO
 LALSUITE_DISTCHECK_CONFIGURE_FLAGS
+LALSUITE_WITH_FALLBACK_DATA_PATH
 
 # nightly build
 LALSUITE_ENABLE_NIGHTLY
@@ -207,7 +207,6 @@ LALSUITE_ADD_GCC_FLAGS
 AC_SUBST([LDADD], ["\$(top_builddir)/lib/liblalframe.la"])
 
 # add extra preprocessor flags
-AM_CPPFLAGS="-DPKG_DATA_DIR='\"\$(pkgdatadir)/\"' ${AM_CPPFLAGS}"
 AM_CPPFLAGS="-I\$(top_builddir)/include ${AM_CPPFLAGS}"
 
 # force headers to be installed in ${includedir}/lal, ignoring library name

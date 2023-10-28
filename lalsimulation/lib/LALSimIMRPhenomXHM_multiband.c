@@ -94,7 +94,7 @@ INT4 XLALSimIMRPhenomXMultibandingGrid(
   coarseGrid.xMax = fstartIn;
 
   REAL8 df0, FrequencyFactor=1, nextfSTART, origLogFreqFact;
-  REAL8 fSTART, mydf = evaldMf, fEND, fEndGrid0,fStartInspDerefinement, fEndInsp;
+  REAL8 fSTART, mydf = evaldMf, fEND, fEndGrid0 = 0, fStartInspDerefinement, fEndInsp;
 
   /* Number of fine freq points between two coarse freq points */
   /* The numerator of this quantity corresponds to eqs. 2.8, 2.9 in arXiv:2001.10897. */
@@ -403,6 +403,31 @@ INT4 XLALSimIMRPhenomXMultibandingGrid(
   return nGridsUsed;
 }
 
+
+INT4 deltaF_MergerRingdown(REAL8 *dfmerger, REAL8 *dfringdown, REAL8 resTest, IMRPhenomXHMWaveformStruct *pWFHM, IMRPhenomXHMAmpCoefficients *pAmp, IMRPhenomXHMPhaseCoefficients *pPhase)
+{
+    REAL8 phase_coeff = 0, amp_coeff = 0;
+    if (pWFHM->MixingOn == 0){
+        phase_coeff = pPhase->alphaL;
+    }
+    else{
+        if (pWFHM->IMRPhenomXHMRingdownPhaseVersion == 122019){
+            phase_coeff = pPhase->alphaL_S;
+        }
+        else if(pWFHM->IMRPhenomXHMRingdownPhaseVersion == 122022) {
+            phase_coeff = pPhase->RDCoefficient[4];
+        }
+    }
+    amp_coeff = pAmp->RDCoefficient[1]/(pAmp->RDCoefficient[2]*pWFHM->fDAMP);
+    *dfmerger = deltaF_mergerBin(pWFHM->fDAMP, phase_coeff, resTest);
+    *dfringdown = deltaF_ringdownBin(pWFHM->fDAMP, phase_coeff, amp_coeff, resTest);
+
+    XLAL_CHECK(*dfmerger > 0, XLAL_EFAULT, "dfmerger = %.6e. It must be > 0", *dfmerger);
+    XLAL_CHECK(*dfringdown > 0, XLAL_EFAULT, "dfringdown = %.6e. It must be > 0", *dfringdown);
+
+    return XLAL_SUCCESS;
+}
+
 /**
  * @addtogroup LALSimIMRPhenomX_c
  * @{
@@ -601,6 +626,7 @@ int IMRPhenomXHMMultiBandOneMode(
 
   /* Threshold for the Multibanding. It is a measure of how restrictive it is. Smaller value implies stronger restriction, more points where evaluate the model. */
   REAL8 resTest  = XLALSimInspiralWaveformParamsLookupPhenomXHMThresholdMband(lalParams);
+  XLAL_CHECK(resTest > 0, XLAL_EDOM, "Multibanding threshold must be > 0.");
   UINT4 ampinterpolorder = XLALSimInspiralWaveformParamsLookupPhenomXHMAmpInterpolMB(lalParams);
   #if DEBUG == 1
   printf("\n***** MBAND = %i, resTest = %.16f, ampIntorder = %i\n", MBAND, resTest, ampinterpolorder);
@@ -621,6 +647,15 @@ int IMRPhenomXHMMultiBandOneMode(
   IMRPhenomXAmpCoefficients   *pAmp22   = (IMRPhenomXAmpCoefficients *) XLALMalloc(sizeof(IMRPhenomXAmpCoefficients));
   IMRPhenomXPhaseCoefficients *pPhase22 = (IMRPhenomXPhaseCoefficients *) XLALMalloc(sizeof(IMRPhenomXPhaseCoefficients));
   IMRPhenomXGetPhaseCoefficients(pWF, pPhase22);
+    
+    
+  /* Setup for NRTidal testing */
+  NRTidal_version_type NRTidal_version;
+  /* Set tidal version */
+  NRTidal_version=IMRPhenomX_SetTidalVersion(lalParams);
+  /* initialise tidal corrections to phasing*/
+    if(NRTidal_version!=NoNRT_V){ IMRPhenomXGetTidalPhaseCoefficients(pWF,pPhase22,NRTidal_version);
+    }
 
   /* Allocate and initialize the PhenomXHM lm amplitude coefficients struct */
   IMRPhenomXHMAmpCoefficients *pAmp = (IMRPhenomXHMAmpCoefficients*)XLALMalloc(sizeof(IMRPhenomXHMAmpCoefficients));
@@ -643,7 +678,7 @@ int IMRPhenomXHMMultiBandOneMode(
     QNMFits *qnms = (QNMFits *) XLALMalloc(sizeof(QNMFits));
     IMRPhenomXHM_Initialize_QNMs(qnms);
     // Populate pWFHM
-    IMRPhenomXHM_SetHMWaveformVariables(ell, emm, pWFHM, pWF,qnms, lalParams);
+    IMRPhenomXHM_SetHMWaveformVariables(ell, emm, pWFHM, pWF,qnms,lalParams);
     LALFree(qnms);
 
     /* Allocate and initialize the PhenomXHM lm phase and amp coefficients struct */
@@ -661,8 +696,7 @@ int IMRPhenomXHMMultiBandOneMode(
     printf("fDAMP = %e\n",pWFHM->fDAMP);
     printf("alphaL = %.16e", pPhase->alphaL);
     #endif
-    dfmerger = deltaF_mergerBin(pWFHM->fDAMP, pPhase->alphaL, resTest);
-    dfringdown = deltaF_ringdownBin(pWFHM->fDAMP, pPhase->alphaL, pAmp->lambda/(pAmp->sigma*pWFHM->fDAMP), resTest);
+    deltaF_MergerRingdown(&dfmerger, &dfringdown, resTest, pWFHM, pAmp, pPhase);
   }
 
   /* Allocate memory for the list of grids. The number of grids must be less than lengthallGrids. */
@@ -808,21 +842,104 @@ int IMRPhenomXHMMultiBandOneMode(
 
     /* Linear time and phase shifts so that model peaks near t ~ 0 */
     REAL8 lina = 0;
-
     IMRPhenomX_Phase_22_ConnectionCoefficients(pWF,pPhase22);
     double linb=IMRPhenomX_TimeShift_22(pPhase22, pWF);
+      
+    REAL8Sequence *phi_tidal = NULL;
+    REAL8Sequence *amp_tidal = NULL;
+    REAL8Sequence *planck_taper = NULL;
+    
+    /* Set matter parameters (set to zero in pWF if NRTidal additions are not turned on) */
+    REAL8 lambda1 = pWF->lambda1;
+    REAL8 lambda2 = pWF->lambda2;
+  
+    REAL8 f_final=Mfmax/pWF->M_sec;
+    
+    REAL8 f_merger = XLALSimNRTunedTidesMergerFrequency(pWF->Mtot, pWF->kappa2T, pWF->q);
+    if(f_merger<f_final)
+          f_final = f_merger;
+    double phiTfRef = 0.;
+        
+    // correct for time and phase shifts due to tidal phase
+    if(NRTidal_version!=NoNRT_V){
+        
+        IMRPhenomX_UsefulPowers powers_of_ffinal;
+        REAL8 Mf_final = f_final*pWF->M_sec;
+        status = IMRPhenomX_Initialize_Powers(&powers_of_ffinal,Mf_final);
+        XLAL_CHECK(XLAL_SUCCESS == status, status, "IMRPhenomX_Initialize_Powers failed for f_final.\n");
+        REAL8 dphi_fmerger=1/pWF->eta*IMRPhenomX_dPhase_22(Mf_final, &powers_of_ffinal, pPhase22, pWF)+linb-IMRPhenomX_TidalPhaseDerivative(&powers_of_ffinal, pWF, pPhase22, NRTidal_version);
+        REAL8 tshift = -dphi_fmerger;
+        linb+=tshift;
+        phiTfRef = -IMRPhenomX_TidalPhase(&powers_of_MfRef, pWF, pPhase22, NRTidal_version);
+        
+    }
+
 
     // Calculate IMRPhenomX phase at reference frequency
-    REAL8 phiref22 = -1./pWF->eta*IMRPhenomX_Phase_22(pWF->MfRef, &powers_of_MfRef, pPhase22, pWF) - linb*pWF->MfRef - lina + 2.0*pWF->phi0 + LAL_PI_4;
-
-
-    for(UINT4 kk = 0; kk < (coarseFreqs)->length; kk++){
-      REAL8 Mff = coarseFreqs->data[kk]*pWF->M_sec;
+    REAL8 phiref22 = -1./pWF->eta*IMRPhenomX_Phase_22(pWF->MfRef, &powers_of_MfRef, pPhase22, pWF)- phiTfRef - linb*pWF->MfRef - lina + 2.0*pWF->phi0 + LAL_PI_4;
+      
+    if (NRTidal_version!=NoNRT_V) {
+        int ret = 0;
+        UINT4 L_fCut = coarseFreqs->length;
+        phi_tidal = XLALCreateREAL8Sequence(L_fCut);
+        amp_tidal = XLALCreateREAL8Sequence(L_fCut);
+        planck_taper = XLALCreateREAL8Sequence(L_fCut);
+        /* Get FD tidal phase correction and amplitude factor */
+        ret = XLALSimNRTunedTidesFDTidalPhaseFrequencySeries(phi_tidal, amp_tidal, planck_taper, coarseFreqs, pWF->m1_SI, pWF->m2_SI, lambda1, lambda2, NRTidal_version);
+        XLAL_CHECK(XLAL_SUCCESS == ret, ret, "XLALSimNRTunedTidesFDTidalPhaseFrequencySeries Failed.");
+      }
+      if (NRTidal_version==NoNRT_V) {
+          
+     for(UINT4 kk = 0; kk < (coarseFreqs)->length; kk++)
+     {
+      
+     REAL8 Mff = coarseFreqs->data[kk]*pWF->M_sec;
       IMRPhenomX_UsefulPowers powers_of_f;
       IMRPhenomX_Initialize_Powers(&powers_of_f,Mff);
       amplitude->data->data[kk] = IMRPhenomX_Amplitude_22(Mff, &powers_of_f, pAmp22, pWF) * pWF->amp0;
       phase->data->data[kk] = 1./pWF->eta*IMRPhenomX_Phase_22(Mff, &powers_of_f, pPhase22, pWF) + linb*Mff + lina + phiref22;
-    }
+     }
+                                    }
+      else{
+          
+          REAL8 pfaN = 3./(128.*pWF->m1*pWF->m2);
+          
+          for(UINT4 kk = 0; kk < (coarseFreqs)->length; kk++)
+          {
+          
+          REAL8 phaseTidal = phi_tidal->data[kk];
+          double ampTidal = amp_tidal->data[kk];
+          double window = planck_taper->data[kk];
+          
+          REAL8 Mff = coarseFreqs->data[kk]*pWF->M_sec;
+          IMRPhenomX_UsefulPowers powers_of_f;
+          IMRPhenomX_Initialize_Powers(&powers_of_f,Mff);
+          /* Add spin-induced quadrupole moment terms to tidal phasing */
+          /* 2PN terms */
+          phaseTidal += pfaN * pPhase22->c2PN_tidal* powers_of_lalpi.m_one_third * powers_of_f.m_one_third;
+          /* 3PN terms */
+          phaseTidal += pfaN * pPhase22->c3PN_tidal* powers_of_lalpi.one_third * powers_of_f.one_third;
+          /* 3.5PN terms are only in NRTidalv2 */
+          if (NRTidal_version == NRTidalv2_V) {
+              phaseTidal += pfaN * pPhase22->c3p5PN_tidal * powers_of_lalpi.two_thirds * powers_of_f.two_thirds;
+          }
+            /* Reconstruct waveform with NRTidal terms included: h(f) = [A(f) + A_tidal(f)] * Exp{I [phi(f) - phi_tidal(f)]} * window(f) */
+          REAL8 amp=IMRPhenomX_Amplitude_22(Mff, &powers_of_f, pAmp22, pWF);
+          amplitude->data->data[kk] = (amp + 2*sqrt(1./5.)*powers_of_lalpi.sqrt * ampTidal) * window * pWF->amp0;
+          
+          phase->data->data[kk] =1./pWF->eta*IMRPhenomX_Phase_22(Mff, &powers_of_f, pPhase22, pWF) + linb*Mff + lina + phiref22 - phaseTidal;
+        
+          }
+          //end of loop
+      
+        }
+      
+     
+          XLALDestroyREAL8Sequence(phi_tidal);
+          XLALDestroyREAL8Sequence(amp_tidal);
+          XLALDestroyREAL8Sequence(planck_taper);
+          
+      
   }
   /** Higher modes **/
   else{
@@ -1027,18 +1144,18 @@ int IMRPhenomXHMMultiBandOneMode(
   else{
     minus1l = +1;
   }
-
+    
   for(UINT4 idx = 0; idx < count; idx++){
-    /* Reconstruct waveform: h(f) = A(f) * Exp[I phi(f)] */
-    ((*htildelm)->data->data)[idx + offset] = minus1l * fineAmp[idx] * expphi[idx];
-  }
+        /* Reconstruct waveform: h(f) = A(f) * Exp[I phi(f)] */
+        ((*htildelm)->data->data)[idx + offset] = minus1l * fineAmp[idx] * expphi[idx];
+      }
 
-  /* Sometimes rounding error can make that count+offset < iStop, meaning that we have computed less points than those we are gonna output,
-    here we make sure that all the elements of htildelm are initialized and we put the extra point(s) to 0. */
+      /* Sometimes rounding error can make that count+offset < iStop, meaning that we have computed less points than those we are gonna output,
+        here we make sure that all the elements of htildelm are initialized and we put the extra point(s) to 0. */
   for(UINT4 idx = count-1; idx < iStop-offset; idx++){
-    /* Reconstruct waveform: h(f) = A(f) * Exp[I phi(f)] */
-    ((*htildelm)->data->data)[idx + offset] = 0.;
-  }
+        /* Reconstruct waveform: h(f) = A(f) * Exp[I phi(f)] */
+        ((*htildelm)->data->data)[idx + offset] = 0.;
+      }
 
   /* Free allocated memory */
   LALFree(pAmp);
@@ -1105,7 +1222,7 @@ int IMRPhenomXHMMultiBandOneMode(
 *
 * This is a technique to make the evaluation of waveform models faster by evaluating the model
 * in a coarser non-uniform grid and interpolate this to the final fine uniform grid.
-* We apply this technique to the fourier domain model IMRPhenomXHM as describe in this paper: https://arxiv.org/abs/2001.10897
+* We apply this technique to the fourier domain model IMRPhenomXHM as described in this paper: https://arxiv.org/abs/2001.10897
 *
 * Multibanding flags:
 *   ThresholdMband: Determines the strength of the Multibanding algorithm.
@@ -1299,6 +1416,7 @@ int IMRPhenomXHMMultiBandOneModeMixing(
 
   /* Threshold for the Multibanding. It is a measure of how restrictive it is. Smaller value implies stronger restriction, more points where evaluate the model. */
   REAL8 resTest  = XLALSimInspiralWaveformParamsLookupPhenomXHMThresholdMband(lalParams);
+  XLAL_CHECK(resTest > 0, XLAL_EDOM, "Multibanding threshold must be > 0.");
   UINT4 ampinterpolorder = XLALSimInspiralWaveformParamsLookupPhenomXHMAmpInterpolMB(lalParams);
   #if DEBUG == 1
   printf("\n***** MBAND = %i, resTest = %.16f, ampIntorder = %i\n", MBAND, resTest, ampinterpolorder);
@@ -1319,7 +1437,7 @@ int IMRPhenomXHMMultiBandOneModeMixing(
   IMRPhenomXPhaseCoefficients *pPhase22 = (IMRPhenomXPhaseCoefficients *) XLALMalloc(sizeof(IMRPhenomXPhaseCoefficients));
   IMRPhenomXGetPhaseCoefficients(pWF, pPhase22);
   //IMRPhenomX_Phase_22_ConnectionCoefficients(pWF,pPhase22);//ceci where should this go? discontinuity
-
+  
   /* Allocate and initialize the PhenomXHM lm amplitude coefficients struct */
   IMRPhenomXHMAmpCoefficients *pAmp = (IMRPhenomXHMAmpCoefficients*)XLALMalloc(sizeof(IMRPhenomXHMAmpCoefficients));
   IMRPhenomXHMPhaseCoefficients *pPhase = (IMRPhenomXHMPhaseCoefficients*)XLALMalloc(sizeof(IMRPhenomXHMPhaseCoefficients));
@@ -1335,8 +1453,7 @@ int IMRPhenomXHMMultiBandOneModeMixing(
   IMRPhenomXHM_GetAmplitudeCoefficients(pAmp, pPhase, pAmp22, pPhase22, pWFHM, pWF);
   IMRPhenomXHM_GetPhaseCoefficients(pAmp, pPhase, pAmp22, pPhase22, pWFHM, pWF,lalParams);
 
-  dfmerger = deltaF_mergerBin(pWFHM->fDAMP, pPhase->alphaL_S, resTest);
-  dfringdown = deltaF_ringdownBin(pWFHM->fDAMP, pPhase->alphaL_S, pAmp->lambda/(pAmp->sigma*pWFHM->fDAMP), resTest);
+  deltaF_MergerRingdown(&dfmerger, &dfringdown, resTest, pWFHM, pAmp, pPhase);
 
   #if DEBUG == 1
   printf("f_min = %.6f, Mfmin = %.6f\n", pWF->fMin, Mfmin);
@@ -1548,7 +1665,7 @@ int IMRPhenomXHMMultiBandOneModeMixing(
   REAL8FrequencySeries *amplitude, *phase;
   REAL8FrequencySeries *phaseSS, *amplitudeSS;
 
-
+  
   if(lencoarseS > ampinterpolorder){
     IMRPhenomXHM_Phase(&phase, coarseFreqsS, pWF, pAmp22, pPhase22, pWFHM, pAmp, pPhase);
     IMRPhenomXHM_Amplitude(&amplitude, coarseFreqsS, pWF, pAmp22, pPhase22, pWFHM, pAmp, pPhase);
@@ -1755,7 +1872,10 @@ int IMRPhenomXHMMultiBandOneModeMixing(
           Omega = (ILphaselmSS[jdx] - ILphaselmSS[jdx - 1])/(IntLawpoints[pointsPrecessedSoFar + j] - IntLawpoints[pointsPrecessedSoFar + j -1]);
         }
 
-        if(Mfhere > pAmp->fAmpMatchIM && RDcutMax < 1){
+        if(pWFHM->IMRPhenomXHMReleaseVersion == 122019 && Mfhere > pAmp->fAmpMatchIM && RDcutMax < 1){
+          RDcutMax = count;
+        }
+        if(pWFHM->IMRPhenomXHMReleaseVersion != 122019 && Mfhere > MfRDcutMax && RDcutMax < 1){
           RDcutMax = count;
         }
       }
@@ -1949,7 +2069,8 @@ int IMRPhenomXHMMultiBandOneModeMixing(
     //COMPLEX16 wf22 = htilde22->data->data[idx + offset];
     COMPLEX16 wf22 = htilde22tmp->data->data[idx - RDcutMin];
     //32 waveform in spheroidal
-    REAL8 amplm = fineAmpSS[idx-RDcutMin] * (powers_of_f.m_seven_sixths*pWFHM->Amp0);
+    REAL8 amplm = fineAmpSS[idx-RDcutMin] * pWFHM->Amp0;
+    if (pWFHM->IMRPhenomXHMRingdownAmpVersion == 0) amplm *= powers_of_f.m_seven_sixths;
     COMPLEX16 expphilm = expphi[idx];
     //Rotation to spherical with Berti's coefficients
     shift32 = linear32[idx-RDcutMin];
@@ -1959,13 +2080,23 @@ int IMRPhenomXHMMultiBandOneModeMixing(
     // Use spheroidal phase but spherical amplitude
     if(Mf < pAmp->fAmpMatchIM){
       data = sphericalWF_32/cabs(sphericalWF_32) * fineAmp[idx];
-      ((*htildelm)->data->data)[idx + offset] = data * minus1l;
+    }
+    // Use spheroidal amp but spherical phase. Case when fAmpMatchIM < fPhaseMatchIM.
+    // For the 122019 release the phase freq was always lower than the amp freq so this case was not necessary
+    // In fact, that is not completely true, in IMRPhenomXHM_Intermediate_CollocPtsFreqs the phase cutting freq for the 122019 is pushed
+    // to higher frequencies for EMRI and negative s1z and it can be higher than the cutting freq for the amplitude.
+    // In that case, the 122019 release extrapolated the spheroidal phase to lower frequencies.
+    else if(Mf < pPhase->fPhaseMatchIM && pWFHM->IMRPhenomXHMReleaseVersion != 122019){
+      // This part does not use Multibanding for the phase. The spherical phase is only interpolated up to RDcutMin (fAmpMatchIM)
+      // This is not using Multibanding for the phase. The spherical phase is only interpolated up to RDcutMin (fAmpMatchIM)
+      COMPLEX16 myphase = cexp(I * IMRPhenomXHM_Phase_ModeMixing(&powers_of_f, pAmp, pPhase, pWFHM, pAmp22, pPhase22, pWF));
+      data = cabs(sphericalWF_32) * myphase;
     }
     // Use spheroidal amplitude and phase
     else{
       data = sphericalWF_32;
-      ((*htildelm)->data->data)[idx + offset] = data * minus1l;
     }
+    ((*htildelm)->data->data)[idx + offset] = data * minus1l;
     #if DEBUG == 1
     data = ((*htildelm)->data->data)[idx + offset];
     fprintf(file6, "%.16f  %.16e %.16e\n",(idx + offset)*deltaF, creal(data), cimag(data));
@@ -2179,7 +2310,7 @@ static int interpolateAmplitudeMixing(
 static int SetupWFArraysReal(
   REAL8Sequence **freqs,           /**<[out] Frequency array to evaluate model **/
   REAL8FrequencySeries **amphase,  /**<[out] Initialize amplitude or phase with the length of freqs **/
-  REAL8Sequence *freqs_In,         /**< Input frequency array or fmin, fmax **/
+  const REAL8Sequence *freqs_In,         /**< Input frequency array or fmin, fmax **/
   IMRPhenomXWaveformStruct *pWF,   /**< Structure of the 22 mode **/
   LIGOTimeGPS ligotimegps_zero     /**< Needed to initialize amphase **/
 ){
@@ -2294,7 +2425,7 @@ static int SetupWFArraysReal(
 /* Spherical amplitude evaluated in an input frequency array */
 static int IMRPhenomXHM_Amplitude(
   REAL8FrequencySeries **amplm,           /**<[out] amplitude of hlm mode **/
-  REAL8Sequence *freqs_In,                /**< Frequency array to evaluate model or fmin, fmax  **/
+  const REAL8Sequence *freqs_In,                /**< Frequency array to evaluate model or fmin, fmax  **/
   IMRPhenomXWaveformStruct *pWF,          /**< Structure of the 22 mode **/
   IMRPhenomXAmpCoefficients *pAmp22,      /**< Amplitude coefficients 22 */
   IMRPhenomXPhaseCoefficients *pPhase22,  /**< Phase coefficients 22 */
@@ -2342,7 +2473,7 @@ static int IMRPhenomXHM_Amplitude(
         }
         else
         {
-          amp = IMRPhenomXHM_Amplitude_ModeMixing(Mf, &powers_of_Mf, pAmp, pPhase, pWFHM, pAmp22, pPhase22, pWF);
+          amp = IMRPhenomXHM_Amplitude_ModeMixing(&powers_of_Mf, pAmp, pPhase, pWFHM, pAmp22, pPhase22, pWF);
           /* Reconstruct waveform: h(f) = A(f) * Exp[I phi(f)] */
           ((*amplm)->data->data)[idx+offset] = pWFHM->Amp0 * amp;
         }
@@ -2360,7 +2491,7 @@ static int IMRPhenomXHM_Amplitude(
         }
         else
         {
-          amp = IMRPhenomXHM_Amplitude_noModeMixing(Mf, &powers_of_Mf, pAmp, pWFHM);
+          amp = IMRPhenomXHM_Amplitude_noModeMixing(&powers_of_Mf, pAmp, pWFHM);
           /* Reconstruct waveform: h(f) = A(f) * Exp[I phi(f)] */
           ((*amplm)->data->data)[idx+offset] = pWFHM->Amp0 * amp;
         }
@@ -2377,7 +2508,7 @@ static int IMRPhenomXHM_Amplitude(
 /* Ringdown amplitude ansatz evaluated in an input frequency array */
 static int IMRPhenomXHM_AmplitudeMixing(
   REAL8FrequencySeries **amplm,           /**<[out] amplitude of hlm mode **/
-  REAL8Sequence *freqs_In,                /**< Frequency array to evaluate model or fmin, fmax  **/
+  const REAL8Sequence *freqs_In,                /**< Frequency array to evaluate model or fmin, fmax  **/
   IMRPhenomXWaveformStruct *pWF,          /**< Structure of the 22 mode **/
   IMRPhenomXHMWaveformStruct *pWFHM,      /**< waveform parameters lm mode */
   IMRPhenomXHMAmpCoefficients *pAmp,      /**< Amplitude coefficients lm */
@@ -2402,6 +2533,7 @@ static int IMRPhenomXHM_AmplitudeMixing(
   printf("\n\nfstart, fend = %.16f %.16f\n\n", freqs->data[0], freqs->data[freqs->length-1]);
   #endif
 
+
   /* Loop over frequencies to generate waveform */
   if(pWFHM->Ampzero==0){
     IMRPhenomX_UsefulPowers powers_of_Mf;
@@ -2420,7 +2552,8 @@ static int IMRPhenomXHM_AmplitudeMixing(
       }
       else
       {
-        amp = IMRPhenomXHM_RD_Amp_Ansatz(powers_of_Mf.itself, pWFHM, pAmp);
+        amp = IMRPhenomXHM_RD_Amp_Ansatz(&powers_of_Mf, pWFHM, pAmp);
+        if (pWFHM->IMRPhenomXHMRingdownAmpVersion == 0) amp *= pWF->ampNorm;
         /* Reconstruct waveform: h(f) = A(f) * Exp[I phi(f)] */
         ((*amplm)->data->data)[idx+offset] =  amp;
       }
@@ -2436,7 +2569,7 @@ static int IMRPhenomXHM_AmplitudeMixing(
 /* Spherical phase evaluated in an input frequency array */
 static int IMRPhenomXHM_Phase(
   REAL8FrequencySeries **phaselm,         /**<[out] phase of hlm mode **/
-  REAL8Sequence *freqs_In,                /**< Frequency array to evaluate model or fmin, fmax  **/
+  const REAL8Sequence *freqs_In,                /**< Frequency array to evaluate model or fmin, fmax  **/
   IMRPhenomXWaveformStruct *pWF,          /**< Structure of the 22 mode **/
   IMRPhenomXAmpCoefficients *pAmp22,      /**< Amplitude coefficients 22 */
   IMRPhenomXPhaseCoefficients *pPhase22,  /**< Phase coefficients 22 */
@@ -2492,7 +2625,7 @@ static int IMRPhenomXHM_Phase(
           }
           else
           {
-            phi = IMRPhenomXHM_Phase_ModeMixing(Mf, &powers_of_Mf, pAmp, pPhase, pWFHM, pAmp22, pPhase22, pWF);
+            phi = IMRPhenomXHM_Phase_ModeMixing(&powers_of_Mf, pAmp, pPhase, pWFHM, pAmp22, pPhase22, pWF);
             /* Only the first coarse point in the RD needs the unwrapping.
             If we remove the enter condition we would get a nice and smooth coarse phase up to pAmp->fAmpMatchIM. */
             if(Mf > pPhase->fPhaseMatchIM && idx>0 && enter == 1){
@@ -2524,7 +2657,7 @@ static int IMRPhenomXHM_Phase(
         }
         else
         {
-          phi = IMRPhenomXHM_Phase_noModeMixing(Mf, &powers_of_Mf, pPhase, pWFHM, pWF);
+          phi = IMRPhenomXHM_Phase_noModeMixing(&powers_of_Mf, pPhase, pWFHM, pWF);
           /* Reconstruct waveform: h(f) = A(f) * Exp[I phi(f)] */
           ((*phaselm)->data->data)[idx+offset] = phi;
         }
@@ -2541,7 +2674,7 @@ static int IMRPhenomXHM_Phase(
 /* Ringdown phase ansatz evaluated in an input frequency array */
 static int IMRPhenomXHM_PhaseMixing(
   REAL8FrequencySeries **phaselm,         /**<[out] phase of hlm mode **/
-  REAL8Sequence *freqs_In,                /**< Frequency array to evaluate model or fmin, fmax  **/
+  const REAL8Sequence *freqs_In,                /**< Frequency array to evaluate model or fmin, fmax  **/
   IMRPhenomXWaveformStruct *pWF,          /**< Structure of the 22 mode **/
   IMRPhenomXHMWaveformStruct *pWFHM,      /**< waveform parameters lm mode */
   IMRPhenomXHMPhaseCoefficients *pPhase  /**< Phase coefficients 22 */

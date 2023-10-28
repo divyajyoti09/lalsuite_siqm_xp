@@ -551,6 +551,7 @@ int IMRPhenomXHMGenerateFDOneMode(
   IMRPhenomXHMWaveformStruct *pWFHM = (IMRPhenomXHMWaveformStruct *) XLALMalloc(sizeof(IMRPhenomXHMWaveformStruct));
   IMRPhenomXHM_SetHMWaveformVariables(ell, emm, pWFHM, pWF, qnms, lalParams);
   LALFree(qnms);
+  
 
   /* Fill only the modes that are not zero. Odd modes for equal mass, equal spins are zero. */
   /* Since hlmtilde is initialized with zeros, for zero modes we just go to the return line. */
@@ -577,11 +578,24 @@ int IMRPhenomXHMGenerateFDOneMode(
     }
     IMRPhenomXHM_GetAmplitudeCoefficients(pAmp, pPhase, pAmp22, pPhase22, pWFHM, pWF);
     IMRPhenomXHM_GetPhaseCoefficients(pAmp, pPhase, pAmp22, pPhase22, pWFHM, pWF,lalParams);
+  
+  
+    /* Find phase and phase derivative shift, lina and linb respectively that
+    align the PNR coprecessing model with XHM at a defined alignment frequency
+    during inspiral */
+    double lina = 0;
+    double linb = 0;
+    if ( 
+          pWF->APPLY_PNR_DEVIATIONS && pWF->IMRPhenomXPNRForceXHMAlignment && (ell != 2) && (emm != 2)
+        )
+    {
+      IMRPhenomXHM_PNR_EnforceXHMPhaseAlignment( &lina,&linb,ell,emm,pWF,lalParams);
+    }
 
 
     IMRPhenomX_UsefulPowers powers_of_Mf;
     REAL8 Msec = pWF->M_sec;    // Variable to transform Hz to Mf
-    REAL8 Amp0 = pWFHM->Amp0;   // Transform amplitude from NR to physical units
+    REAL8 Amp0 = pWF->amp0;   // Transform amplitude from NR to physical units
     REAL8 amp, phi;
 
     /* Multiply by (-1)^l to get the true h_l-m(f) */
@@ -603,48 +617,96 @@ int IMRPhenomXHMGenerateFDOneMode(
 
     /* Loop over frequencies to generate waveform */
     /* Modes with mixing */
-    if(pWFHM->MixingOn==1){
-
+    if(pWFHM->MixingOn==1)
+    {
       REAL8 Mf;
       for (UINT4 idx = 0; idx < freqs->length; idx++)
       {
         Mf    = Msec * freqs->data[idx];
-        initial_status     = IMRPhenomX_Initialize_Powers(&powers_of_Mf,Mf);
-        if(initial_status != XLAL_SUCCESS)
+
+        /* We do not want to generate the waveform at frequencies > Mf_max (default Mf = 0.3) */
+        if(Mf <= (pWF->f_max_prime * pWF->M_sec))
         {
-          XLALPrintError("IMRPhenomX_Initialize_Powers failed for Mf, initial_status=%d",initial_status);
+
+          initial_status     = IMRPhenomX_Initialize_Powers(&powers_of_Mf,Mf);
+          if(initial_status != XLAL_SUCCESS)
+          {
+            XLALPrintError("IMRPhenomX_Initialize_Powers failed for Mf, initial_status=%d",initial_status);
+          }
+          else
+          {
+            amp = IMRPhenomXHM_Amplitude_ModeMixing(&powers_of_Mf, pAmp, pPhase, pWFHM, pAmp22, pPhase22, pWF);
+            phi = IMRPhenomXHM_Phase_ModeMixing(&powers_of_Mf, pAmp, pPhase, pWFHM, pAmp22, pPhase22, pWF);
+            // Add potential correction s.t. PNR CoPrec aligns with XHM during inspiral. See IMRPhenomXHM_PNR_EnforceXHMPhaseAlignment.
+            phi += lina + Mf*linb;
+
+            /* Reconstruct waveform: h_l-m(f) = A(f) * Exp[I phi(f)] */
+            ((*htildelm)->data->data)[idx+offset] = Amp0 * amp * cexp(I * phi);
+
+            #if DEBUG == 1
+            fprintf(file, "%.16f  %.16e %.16f\n",  freqs->data[idx], Amp0*amp, phi);
+            #endif
+          }
         }
         else
         {
-          amp = IMRPhenomXHM_Amplitude_ModeMixing(Mf, &powers_of_Mf, pAmp, pPhase, pWFHM, pAmp22, pPhase22, pWF);
-          phi = IMRPhenomXHM_Phase_ModeMixing(Mf, &powers_of_Mf, pAmp, pPhase, pWFHM, pAmp22, pPhase22, pWF);
-          /* Reconstruct waveform: h_l-m(f) = A(f) * Exp[I phi(f)] */
-          ((*htildelm)->data->data)[idx+offset] = Amp0 * amp * cexp(I * phi);
-
-          #if DEBUG == 1
-          fprintf(file, "%.16f  %.16e %.16f\n",  freqs->data[idx], Amp0*amp, phi);
-          #endif
+          ((*htildelm)->data->data)[idx+offset] = 0.0 + I*0.0;
         }
       }
-    }  /* Modes without mixing */
-    else{
+    }
+    /* Modes without mixing */
+    else
+    {
       for (UINT4 idx = 0; idx < freqs->length; idx++)
       {
         REAL8 Mf    = Msec * freqs->data[idx];
-        initial_status     = IMRPhenomX_Initialize_Powers(&powers_of_Mf,Mf);
-        if(initial_status != XLAL_SUCCESS)
+
+        /* We do not want to generate the waveform at frequencies > Mf_max (default Mf = 0.3) */
+        if(Mf <= (pWF->f_max_prime * pWF->M_sec))
         {
-          XLALPrintError("IMRPhenomX_Initialize_Powers failed for Mf, initial_status=%d",initial_status);
+          initial_status     = IMRPhenomX_Initialize_Powers(&powers_of_Mf,Mf);
+          if(initial_status != XLAL_SUCCESS)
+          {
+            XLALPrintError("IMRPhenomX_Initialize_Powers failed for Mf, initial_status=%d",initial_status);
+          }
+          else
+          {
+            amp = IMRPhenomXHM_Amplitude_noModeMixing(&powers_of_Mf, pAmp, pWFHM);
+            phi = IMRPhenomXHM_Phase_noModeMixing(&powers_of_Mf, pPhase, pWFHM, pWF);
+
+            // Add potential correction s.t. PNR CoPrec aligns with XHM during inspiral. See IMRPhenomXHM_PNR_EnforceXHMPhaseAlignment.
+            phi += lina + Mf*linb;
+
+            // /* Reconstruct waveform: h_l-m(f) = A(f) * Exp[I phi(f)] */
+            // ((*htildelm)->data->data)[idx+offset] = Amp0 * amp * cexp(I * phi);
+
+            /* NOTE that the above lines are commented out to clarify legacy code structure.
+            HERE, we allow the user to toggle output of ONLY the model's phase using lalParams.
+            The intended use of this option is to enable exact output of the phase, without unwanted numerical effects that result from unwrapping the complete waveform. In particular, at low frequencies, the phase may vary so quickly that adjacent frequency points correctly differ by more than 2*pi, thus limiting unwrap routines which assume that this is not the case.  
+            */
+            if ( pWF->PhenomXOnlyReturnPhase ) {
+              //
+              
+              /* Here we mimic the line above (just above "#if DEBUG == 1") that negates the amplitude if ell is odd: Multiply by (-1)^l to get the true h_l-m(f) */
+              if(ell%2 != 0){
+                // Amp0 = -Amp0;
+                phi = phi + LAL_PI;
+              }
+      
+              ((*htildelm)->data->data)[idx+offset] = phi;
+            } else {
+              /* Reconstruct waveform: h_l-m(f) = A(f) * Exp[I phi(f)] */
+              ((*htildelm)->data->data)[idx+offset] = Amp0 * amp * cexp(I * phi);
+            }
+
+            #if DEBUG == 1
+            fprintf(file, "%.16f  %.16e %.16f\n",  freqs->data[idx], Amp0*amp, phi);
+            #endif
+          }
         }
         else
         {
-          amp = IMRPhenomXHM_Amplitude_noModeMixing(Mf, &powers_of_Mf, pAmp, pWFHM);
-          phi = IMRPhenomXHM_Phase_noModeMixing(Mf, &powers_of_Mf, pPhase, pWFHM, pWF);
-          /* Reconstruct waveform: h_l-m(f) = A(f) * Exp[I phi(f)] */
-          ((*htildelm)->data->data)[idx+offset] = Amp0 * amp * cexp(I * phi);
-          #if DEBUG == 1
-          fprintf(file, "%.16f  %.16e %.16f\n",  freqs->data[idx], Amp0*amp, phi);
-          #endif
+          ((*htildelm)->data->data)[idx+offset] = 0.0 + I*0.0;
         }
       }
     }
@@ -1000,6 +1062,321 @@ int XLALSimIMRPhenomXHMModes(
 }
 
 
+int XLALSimIMRPhenomXHM_SpheroidalPhase(
+  REAL8Sequence **phase, /**< [out] FD waveform */
+  const REAL8Sequence *freqs,                /**< frequency array to evaluate model (positives) */
+  UINT4 ell,                           /**< l index of the mode */
+  INT4 emm,                            /**< m index of the mode */
+  REAL8 m1_SI,                         /**< Mass of companion 1 (kg) */
+  REAL8 m2_SI,                         /**< Mass of companion 2 (kg) */
+  REAL8 chi1L,                         /**< Dimensionless aligned spin of companion 1 */
+  REAL8 chi2L,                         /**< Dimensionless aligned spin of companion 2 */
+  REAL8 distance,                      /**< Luminosity distance (m) */
+  REAL8 phiRef,                        /**< Orbital phase at fRef (rad) */
+  REAL8 fRef_In,                       /**< Reference frequency (Hz) */
+  LALDict *lalParams                   /**< UNDOCUMENTED */
+)
+{
+
+    /* Variable to check correct calls to functions. */
+    INT4 status = 0;
+
+    /* Sanity checks */
+    if(*phase)       { XLAL_CHECK(NULL != phase, XLAL_EFAULT);                                   }
+    if(fRef_In  <  0.0) { XLAL_ERROR(XLAL_EDOM, "fRef_In must be positive or set to 0 to ignore.\n");  }
+    if(m1_SI    <= 0.0) { XLAL_ERROR(XLAL_EDOM, "m1 must be positive.\n");                             }
+    if(m2_SI    <= 0.0) { XLAL_ERROR(XLAL_EDOM, "m2 must be positive.\n");                             }
+    if(distance <  0.0) { XLAL_ERROR(XLAL_EDOM, "Distance must be positive and greater than 0.\n");    }
+
+    /*
+      Perform a basic sanity check on the region of the parameter space in which model is evaluated. Behaviour is as follows:
+        - For mass ratios <= 20.0 and spins <= 0.99: no warning messages.
+        - For 1000 > mass ratio > 20 and spins <= 0.99: print a warning message that we are extrapolating outside of *NR* calibration domain.
+        - For mass ratios > 1000: throw a hard error that model is not valid.
+        - For spins > 0.99: throw a warning that we are extrapolating the model to extremal
+
+    */
+    REAL8 mass_ratio;
+    if(m1_SI > m2_SI)
+    {
+      mass_ratio = m1_SI / m2_SI;
+    }
+    else
+    {
+      mass_ratio = m2_SI / m1_SI;
+    }
+    if(mass_ratio > 20.0  ) { XLAL_PRINT_INFO("Warning: Extrapolating outside of Numerical Relativity calibration domain."); }
+    if(mass_ratio > 1000. && fabs(mass_ratio - 1000) > 1e-12) { XLAL_ERROR(XLAL_EDOM, "ERROR: Model not valid at mass ratios beyond 1000."); } // The 1e-12 is to avoid rounding errors
+    if(fabs(chi1L) > 0.99 || fabs(chi2L) > 0.99) { XLAL_PRINT_INFO("Warning: Extrapolating to extremal spins, model is not trusted."); }
+
+    /* Use an auxiliar laldict to not overwrite the input argument */
+    LALDict *lalParams_aux;
+    /* setup mode array */
+    if (lalParams == NULL)
+    {
+        lalParams_aux = XLALCreateDict();
+    }
+    else{
+        lalParams_aux = XLALDictDuplicate(lalParams);
+    }
+    lalParams_aux = IMRPhenomXHM_setup_mode_array(lalParams_aux);
+    LALValue *ModeArray = XLALSimInspiralWaveformParamsLookupModeArray(lalParams_aux);
+
+    /* first check if (l,m) mode is 'activated' in the ModeArray */
+    /* if activated then generate the mode, else skip this mode. */
+    if (XLALSimInspiralModeArrayIsModeActive(ModeArray, ell, emm) != 1 )
+    { /* skip mode */
+      XLALPrintError("XLAL Error - %i%i mode is not included\n", ell, emm);
+      XLAL_ERROR(XLAL_EDOM);
+    } /* else: generate mode */
+
+    /* Get minimum and maximum frequencies. */
+    REAL8 f_min_In  = freqs->data[0];
+    REAL8 f_max_In  = freqs->data[freqs->length - 1];
+
+
+    /* Initialize the useful powers of LAL_PI */
+    status = IMRPhenomX_Initialize_Powers(&powers_of_lalpiHM, LAL_PI);
+    XLAL_CHECK(XLAL_SUCCESS == status, XLAL_EFUNC, "Failed to initialize useful powers of LAL_PI.");
+    status = IMRPhenomX_Initialize_Powers(&powers_of_lalpi, LAL_PI);
+    XLAL_CHECK(XLAL_SUCCESS == status, XLAL_EFUNC, "Failed to initialize useful powers of LAL_PI.");
+
+
+    /*
+      Initialize IMRPhenomX waveform struct and perform sanity check.
+      Passing deltaF = 0 tells us that freqs contains a frequency grid with non-uniform spacing.
+      The function waveform start at lowest given frequency.
+    */
+    IMRPhenomXWaveformStruct *pWF;
+    pWF = XLALMalloc(sizeof(IMRPhenomXWaveformStruct));
+    status = IMRPhenomXSetWaveformVariables(pWF,m1_SI, m2_SI, chi1L, chi2L, 0.0, fRef_In, phiRef, f_min_In, f_max_In, distance, 0.0, lalParams_aux, PHENOMXDEBUG);
+    XLAL_CHECK(XLAL_SUCCESS == status, XLAL_EFUNC, "Error:  failed.\n");
+
+
+    // allocate qnm struct
+    QNMFits *qnms = (QNMFits *) XLALMalloc(sizeof(QNMFits));
+    IMRPhenomXHM_Initialize_QNMs(qnms);
+
+    // Populate pWFHM
+    IMRPhenomXHMWaveformStruct *pWFHM = (IMRPhenomXHMWaveformStruct *) XLALMalloc(sizeof(IMRPhenomXHMWaveformStruct));
+    IMRPhenomXHM_SetHMWaveformVariables(ell, abs(emm), pWFHM, pWF, qnms, lalParams);
+    LALFree(qnms);
+
+    /* Allocate coefficients of 22 mode */
+    IMRPhenomXAmpCoefficients *pAmp22=(IMRPhenomXAmpCoefficients *) XLALMalloc(sizeof(IMRPhenomXAmpCoefficients));
+    IMRPhenomXPhaseCoefficients *pPhase22=(IMRPhenomXPhaseCoefficients *) XLALMalloc(sizeof(IMRPhenomXPhaseCoefficients));
+    IMRPhenomXGetPhaseCoefficients(pWF, pPhase22);
+
+    /* Allocate and initialize the PhenomXHM lm amplitude and phae coefficients struct */
+    IMRPhenomXHMAmpCoefficients *pAmp = (IMRPhenomXHMAmpCoefficients*) XLALMalloc(sizeof(IMRPhenomXHMAmpCoefficients));
+    IMRPhenomXHMPhaseCoefficients *pPhase = (IMRPhenomXHMPhaseCoefficients*) XLALMalloc(sizeof(IMRPhenomXHMPhaseCoefficients));
+
+    /* Allocate and initialize the PhenomXHM lm phase and amp coefficients struct */
+    IMRPhenomXHM_FillAmpFitsArray(pAmp);
+    IMRPhenomXHM_FillPhaseFitsArray(pPhase);
+
+    /* Get coefficients for Amplitude and phase */
+    if (pWFHM->MixingOn == 1) {
+        // For mode with mixing we need the spheroidal coeffs of the 32 phase and the 22 amplitude coeffs.
+        GetSpheroidalCoefficients(pPhase, pPhase22, pWFHM, pWF);
+        IMRPhenomXGetAmplitudeCoefficients(pWF, pAmp22);
+    }
+    IMRPhenomXHM_GetAmplitudeCoefficients(pAmp, pPhase, pAmp22, pPhase22, pWFHM, pWF);
+    IMRPhenomXHM_GetPhaseCoefficients(pAmp, pPhase, pAmp22, pPhase22, pWFHM, pWF,lalParams);
+
+    IMRPhenomX_UsefulPowers powers_of_Mf;
+    REAL8 Msec = pWF->M_sec;    // Variable to transform Hz to Mf
+
+    *phase = XLALCreateREAL8Sequence(freqs->length);
+
+    for (UINT4 idx = 0; idx < freqs->length; idx++)
+    {
+      REAL8 Mf    = Msec * freqs->data[idx];
+      INT4 initial_status     = IMRPhenomX_Initialize_Powers(&powers_of_Mf,Mf);
+      if(initial_status != XLAL_SUCCESS)
+      {
+        XLALPrintError("IMRPhenomX_Initialize_Powers failed for Mf, initial_status=%d",initial_status);
+      }
+      else
+      {
+        ((*phase)->data)[idx] = IMRPhenomXHM_RD_Phase_AnsatzInt(Mf, &powers_of_Mf, pWFHM, pPhase);
+      }
+    }
+
+
+    /* Free memory */
+    LALFree(pWF);
+    LALFree(pWFHM);
+    LALFree(pPhase);
+    LALFree(pPhase22);
+    LALFree(pAmp);
+    LALFree(pAmp22);
+    XLALDestroyValue(ModeArray);
+    XLALDestroyDict(lalParams_aux);
+
+
+    return XLAL_SUCCESS;
+}
+
+
+int XLALSimIMRPhenomXHM_SpheroidalAmplitude(
+  REAL8Sequence **amplitude, /**< [out] FD waveform */
+  const REAL8Sequence *freqs,                /**< frequency array to evaluate model (positives) */
+  UINT4 ell,                           /**< l index of the mode */
+  INT4 emm,                            /**< m index of the mode */
+  REAL8 m1_SI,                         /**< Mass of companion 1 (kg) */
+  REAL8 m2_SI,                         /**< Mass of companion 2 (kg) */
+  REAL8 chi1L,                         /**< Dimensionless aligned spin of companion 1 */
+  REAL8 chi2L,                         /**< Dimensionless aligned spin of companion 2 */
+  REAL8 distance,                      /**< Luminosity distance (m) */
+  REAL8 phiRef,                        /**< Orbital phase at fRef (rad) */
+  REAL8 fRef_In,                       /**< Reference frequency (Hz) */
+  LALDict *lalParams                   /**< UNDOCUMENTED */
+)
+{
+
+    /* Variable to check correct calls to functions. */
+    INT4 status = 0;
+
+    /* Sanity checks */
+    if(*amplitude)       { XLAL_CHECK(NULL != amplitude, XLAL_EFAULT);                                   }
+    if(fRef_In  <  0.0) { XLAL_ERROR(XLAL_EDOM, "fRef_In must be positive or set to 0 to ignore.\n");  }
+    if(m1_SI    <= 0.0) { XLAL_ERROR(XLAL_EDOM, "m1 must be positive.\n");                             }
+    if(m2_SI    <= 0.0) { XLAL_ERROR(XLAL_EDOM, "m2 must be positive.\n");                             }
+    if(distance <  0.0) { XLAL_ERROR(XLAL_EDOM, "Distance must be positive and greater than 0.\n");    }
+
+    /*
+      Perform a basic sanity check on the region of the parameter space in which model is evaluated. Behaviour is as follows:
+        - For mass ratios <= 20.0 and spins <= 0.99: no warning messages.
+        - For 1000 > mass ratio > 20 and spins <= 0.99: print a warning message that we are extrapolating outside of *NR* calibration domain.
+        - For mass ratios > 1000: throw a hard error that model is not valid.
+        - For spins > 0.99: throw a warning that we are extrapolating the model to extremal
+
+    */
+    REAL8 mass_ratio;
+    if(m1_SI > m2_SI)
+    {
+      mass_ratio = m1_SI / m2_SI;
+    }
+    else
+    {
+      mass_ratio = m2_SI / m1_SI;
+    }
+    if(mass_ratio > 20.0  ) { XLAL_PRINT_INFO("Warning: Extrapolating outside of Numerical Relativity calibration domain."); }
+    if(mass_ratio > 1000. && fabs(mass_ratio - 1000) > 1e-12) { XLAL_ERROR(XLAL_EDOM, "ERROR: Model not valid at mass ratios beyond 1000."); } // The 1e-12 is to avoid rounding errors
+    if(fabs(chi1L) > 0.99 || fabs(chi2L) > 0.99) { XLAL_PRINT_INFO("Warning: Extrapolating to extremal spins, model is not trusted."); }
+
+    /* Use an auxiliar laldict to not overwrite the input argument */
+    LALDict *lalParams_aux;
+    /* setup mode array */
+    if (lalParams == NULL)
+    {
+        lalParams_aux = XLALCreateDict();
+    }
+    else{
+        lalParams_aux = XLALDictDuplicate(lalParams);
+    }
+    lalParams_aux = IMRPhenomXHM_setup_mode_array(lalParams_aux);
+    LALValue *ModeArray = XLALSimInspiralWaveformParamsLookupModeArray(lalParams_aux);
+
+    /* first check if (l,m) mode is 'activated' in the ModeArray */
+    /* if activated then generate the mode, else skip this mode. */
+    if (XLALSimInspiralModeArrayIsModeActive(ModeArray, ell, emm) != 1 )
+    { /* skip mode */
+      XLALPrintError("XLAL Error - %i%i mode is not included\n", ell, emm);
+      XLAL_ERROR(XLAL_EDOM);
+    } /* else: generate mode */
+
+    /* Get minimum and maximum frequencies. */
+    REAL8 f_min_In  = freqs->data[0];
+    REAL8 f_max_In  = freqs->data[freqs->length - 1];
+
+
+    /* Initialize the useful powers of LAL_PI */
+    status = IMRPhenomX_Initialize_Powers(&powers_of_lalpiHM, LAL_PI);
+    XLAL_CHECK(XLAL_SUCCESS == status, XLAL_EFUNC, "Failed to initialize useful powers of LAL_PI.");
+    status = IMRPhenomX_Initialize_Powers(&powers_of_lalpi, LAL_PI);
+    XLAL_CHECK(XLAL_SUCCESS == status, XLAL_EFUNC, "Failed to initialize useful powers of LAL_PI.");
+
+
+    /*
+      Initialize IMRPhenomX waveform struct and perform sanity check.
+      Passing deltaF = 0 tells us that freqs contains a frequency grid with non-uniform spacing.
+      The function waveform start at lowest given frequency.
+    */
+    IMRPhenomXWaveformStruct *pWF;
+    pWF = XLALMalloc(sizeof(IMRPhenomXWaveformStruct));
+    status = IMRPhenomXSetWaveformVariables(pWF,m1_SI, m2_SI, chi1L, chi2L, 0.0, fRef_In, phiRef, f_min_In, f_max_In, distance, 0.0, lalParams_aux, PHENOMXDEBUG);
+    XLAL_CHECK(XLAL_SUCCESS == status, XLAL_EFUNC, "Error:  failed.\n");
+
+
+    // allocate qnm struct
+    QNMFits *qnms = (QNMFits *) XLALMalloc(sizeof(QNMFits));
+    IMRPhenomXHM_Initialize_QNMs(qnms);
+
+    // Populate pWFHM
+    IMRPhenomXHMWaveformStruct *pWFHM = (IMRPhenomXHMWaveformStruct *) XLALMalloc(sizeof(IMRPhenomXHMWaveformStruct));
+    IMRPhenomXHM_SetHMWaveformVariables(ell, abs(emm), pWFHM, pWF, qnms, lalParams);
+    LALFree(qnms);
+
+    /* Allocate coefficients of 22 mode */
+    IMRPhenomXAmpCoefficients *pAmp22=(IMRPhenomXAmpCoefficients *) XLALMalloc(sizeof(IMRPhenomXAmpCoefficients));
+    IMRPhenomXPhaseCoefficients *pPhase22=(IMRPhenomXPhaseCoefficients *) XLALMalloc(sizeof(IMRPhenomXPhaseCoefficients));
+    IMRPhenomXGetPhaseCoefficients(pWF, pPhase22);
+
+    /* Allocate and initialize the PhenomXHM lm amplitude and phae coefficients struct */
+    IMRPhenomXHMAmpCoefficients *pAmp = (IMRPhenomXHMAmpCoefficients*) XLALMalloc(sizeof(IMRPhenomXHMAmpCoefficients));
+    IMRPhenomXHMPhaseCoefficients *pPhase = (IMRPhenomXHMPhaseCoefficients*) XLALMalloc(sizeof(IMRPhenomXHMPhaseCoefficients));
+
+    /* Allocate and initialize the PhenomXHM lm phase and amp coefficients struct */
+    IMRPhenomXHM_FillAmpFitsArray(pAmp);
+    IMRPhenomXHM_FillPhaseFitsArray(pPhase);
+
+    /* Get coefficients for Amplitude and phase */
+    if (pWFHM->MixingOn == 1) {
+        // For mode with mixing we need the spheroidal coeffs of the 32 phase and the 22 amplitude coeffs.
+        GetSpheroidalCoefficients(pPhase, pPhase22, pWFHM, pWF);
+        IMRPhenomXGetAmplitudeCoefficients(pWF, pAmp22);
+    }
+    IMRPhenomXHM_GetAmplitudeCoefficients(pAmp, pPhase, pAmp22, pPhase22, pWFHM, pWF);
+    //FIXME: needed?
+    IMRPhenomXHM_GetPhaseCoefficients(pAmp, pPhase, pAmp22, pPhase22, pWFHM, pWF,lalParams);
+
+    IMRPhenomX_UsefulPowers powers_of_Mf;
+    REAL8 Msec = pWF->M_sec;    // Variable to transform Hz to Mf
+
+    *amplitude = XLALCreateREAL8Sequence(freqs->length);
+
+    for (UINT4 idx = 0; idx < freqs->length; idx++)
+    {
+      REAL8 Mf    = Msec * freqs->data[idx];
+      INT4 initial_status     = IMRPhenomX_Initialize_Powers(&powers_of_Mf,Mf);
+      if(initial_status != XLAL_SUCCESS)
+      {
+        XLALPrintError("IMRPhenomX_Initialize_Powers failed for Mf, initial_status=%d",initial_status);
+      }
+      else
+      {
+        ((*amplitude)->data)[idx] = IMRPhenomXHM_RD_Amp_Ansatz(&powers_of_Mf, pWFHM, pAmp) * pWFHM->Amp0;
+      }
+    }
+
+
+    /* Free memory */
+    LALFree(pWF);
+    LALFree(pWFHM);
+    LALFree(pPhase);
+    LALFree(pPhase22);
+    LALFree(pAmp);
+    LALFree(pAmp22);
+    XLALDestroyValue(ModeArray);
+    XLALDestroyDict(lalParams_aux);
+
+
+    return XLAL_SUCCESS;
+}
+
+
 /*********************************************/
 /*                                           */
 /*          MULTIMODE WAVEFORM               */
@@ -1330,6 +1707,10 @@ int XLALSimIMRPhenomXHM2(
      XLALSimInspiralWaveformParamsInsertPhenomXHMThresholdMband(lalParams_aux, 0);
    }
 
+   /* Initialize the useful powers of LAL_PI */
+      status = IMRPhenomX_Initialize_Powers(&powers_of_lalpi, LAL_PI);
+      XLAL_CHECK(XLAL_SUCCESS == status, status, "Failed to initialize useful powers of LAL_PI.");
+
    /* Initialize IMRPhenomX waveform struct and perform sanity check. */
    IMRPhenomXWaveformStruct *pWF;
    pWF = XLALMalloc(sizeof(IMRPhenomXWaveformStruct));
@@ -1626,9 +2007,10 @@ static int IMRPhenomXHM_MultiMode2(
 
   /* Allocate hptilde and hctilde */
   /* Coalescence time is fixed to t=0, shift by overall length in time. */
-  //XLAL_CHECK(XLALGPSAdd(&ligotimegps_zero, -1. / pWF->deltaF), XLAL_EFUNC, "Failed to shift the coalescence time to t=0. Tried to apply a shift of -1/df with df = %g.", pWF->deltaF);
   size_t n = (htildelm)->data->length;
-  XLAL_CHECK(XLALGPSAdd(&ligotimegps_zero, -1. / pWF->deltaF), XLAL_EFUNC, "Failed to shift the coalescence time to t=0. Tried to apply a shift of -1/df with df = %g.", pWF->deltaF);
+  if (pWF->deltaF > 0){
+    XLAL_CHECK(XLALGPSAdd(&ligotimegps_zero, -1. / pWF->deltaF), XLAL_EFUNC, "Failed to shift the coalescence time to t=0. Tried to apply a shift of -1/df with df = %g.", pWF->deltaF);
+  }
   *hptilde = XLALCreateCOMPLEX16FrequencySeries("hptilde: FD waveform", &(ligotimegps_zero), 0.0, pWF->deltaF, &lalStrainUnit, n);
   if (!(hptilde)){   XLAL_ERROR(XLAL_EFUNC);}
   memset((*hptilde)->data->data, 0, n * sizeof(COMPLEX16));  // what is this for??
@@ -1728,7 +2110,7 @@ static int IMRPhenomXHM_MultiMode2(
     else{
       minus1l = 1;
     }
-    Amp0 = minus1l * pWF->ampNorm * pWF->amp0;
+    Amp0 = minus1l * pWF->amp0; //Transform NR units to Physical units
 
     for (INT4 emm = 1; emm < (INT4)ell + 1; emm++){
       /* Loop over only positive m is intentional. The single mode function returns the negative mode h_l-m, and the positive is added automatically in IMRPhenomXHMFDAddMode. */
@@ -1794,8 +2176,8 @@ static int IMRPhenomXHM_MultiMode2(
             for (UINT4 idx = 0; idx < len; idx++)
             {
               COMPLEX16 wf22 = htilde22->data->data[idx + offset]; //This will be rescaled inside SpheroidalToSphericalRecycle for the rotation
-              amp = IMRPhenomXHM_Amplitude_ModeMixingRecycle(Mf[idx], &powers_of_Mf[idx], wf22, pAmp, pPhase, pWFHM);
-              phi = IMRPhenomXHM_Phase_ModeMixingRecycle(Mf[idx], &powers_of_Mf[idx], wf22, pAmp, pPhase, pWFHM);
+              amp = IMRPhenomXHM_Amplitude_ModeMixingRecycle(&powers_of_Mf[idx], wf22, pAmp, pPhase, pWFHM);
+              phi = IMRPhenomXHM_Phase_ModeMixingRecycle(&powers_of_Mf[idx], wf22, pAmp, pPhase, pWFHM);
               /* Reconstruct waveform: h(f) = A(f) * Exp[I phi(f)] */
               ((htildelm)->data->data)[idx+offset] = Amp0 * amp * cexp(I * phi);
             }
@@ -1804,8 +2186,8 @@ static int IMRPhenomXHM_MultiMode2(
           else{
             for (UINT4 idx = 0; idx < len; idx++)
             {
-              amp = IMRPhenomXHM_Amplitude_ModeMixing(Mf[idx], &powers_of_Mf[idx], pAmp, pPhase, pWFHM, pAmp22, pPhase22, pWF);
-              phi = IMRPhenomXHM_Phase_ModeMixing(Mf[idx], &powers_of_Mf[idx], pAmp, pPhase, pWFHM, pAmp22, pPhase22, pWF);
+              amp = IMRPhenomXHM_Amplitude_ModeMixing(&powers_of_Mf[idx], pAmp, pPhase, pWFHM, pAmp22, pPhase22, pWF);
+              phi = IMRPhenomXHM_Phase_ModeMixing(&powers_of_Mf[idx], pAmp, pPhase, pWFHM, pAmp22, pPhase22, pWF);
               /* Reconstruct waveform: h(f) = A(f) * Exp[I phi(f)] */
               ((htildelm)->data->data)[idx+offset] = Amp0 * amp * cexp(I * phi);
             }
@@ -1814,8 +2196,8 @@ static int IMRPhenomXHM_MultiMode2(
         else{
           for (UINT4 idx = 0; idx < len; idx++)
           {
-            amp = IMRPhenomXHM_Amplitude_noModeMixing(Mf[idx], &powers_of_Mf[idx], pAmp, pWFHM);
-            phi = IMRPhenomXHM_Phase_noModeMixing(Mf[idx], &powers_of_Mf[idx], pPhase, pWFHM, pWF);
+            amp = IMRPhenomXHM_Amplitude_noModeMixing(&powers_of_Mf[idx], pAmp, pWFHM);
+            phi = IMRPhenomXHM_Phase_noModeMixing(&powers_of_Mf[idx], pPhase, pWFHM, pWF);
             /* Reconstruct waveform: h(f) = A(f) * Exp[I phi(f)] */
             ((htildelm)->data->data)[idx+offset] = Amp0 * amp * cexp(I * phi);
           }
@@ -1979,8 +2361,8 @@ static int IMRPhenomXHMFDAddMode(
 *
 * @brief C code for IMRPhenomXHM phenomenological waveform model.
 *
-* This is an aligned-spin frequency domain model wit subdomimant modes: 2|2|, 2|1|, 3|3|, 3|2|, 4|4| .
-* See C.García-Quirós et al for details. Any studies that use this waveform model should include
+* This is an aligned-spin frequency domain model with subdomimant modes: 2|2|, 2|1|, 3|3|, 3|2|, 4|4| .
+* See C.García-Quirós et al arXiv:2001.10914 for details. Any studies that use this waveform model should include
 * a reference to this paper.
 *
 * @note The model was calibrated to mass-ratios from 1 to 1000.
@@ -1994,6 +2376,17 @@ static int IMRPhenomXHMFDAddMode(
 * under https://git.ligo.org/waveforms/reviews/imrphenomx/wikis/home.
 * DCC link to the paper and supplementary material: https://dcc.ligo.org/P2000011-v2
 *
+* Waveform flags:
+* 
+*   PhenomXHMReleaseVersion: this flag was introduced after the recalibration of the higher modes amplitudes in 122022.
+*   The default value is 122022, pointing to the new release. The old release can be recovered setting this option to 122019.
+*   For future releases this flag will be updated.
+*
+*   NOTE: The following flags are only intended for further model development and not of general interest to the user. Changes from the implemented default values (https://git.ligo.org/waveforms/reviews/imrphenomxhm-amplitude-recalibration/-/wikis/home) are generally not advised. 
+*      IMRPhenomXHMInspiral(Intermediate)(Ringdown)Amp(Phase)FreqsVersion: controls the cutting frequencies between regions and the collocation points frequencies
+*      IMRPhenomXHMInspiral(Intermediate)(Ringdown)Amp(Phase)FitsVersion: controls the version of the parameter space fits for collocation points values and coefficients
+*      IMRPhenomXHMInspiral(Intermediate)(Ringdown)Amp(Phase)Version: controls the version of the ansatz. In the 122022 release the new format allows for more flexibility to choose the collocation points to be used
+*      The 122022 release does not modify the phases, so all the Phase flags point to the old value of PhaseVersion. Notice that the PhaseFreqs(Fits)Version flags cannot be modified through LALDict options.
 **/
 
 /** Returns amplitude of one single mode in a custom frequency array.
@@ -2120,7 +2513,7 @@ int XLALSimIMRPhenomXHMAmplitude(
     IMRPhenomXHMAmpCoefficients *pAmp = (IMRPhenomXHMAmpCoefficients*) XLALMalloc(sizeof(IMRPhenomXHMAmpCoefficients));
     IMRPhenomXHMPhaseCoefficients *pPhase = (IMRPhenomXHMPhaseCoefficients*) XLALMalloc(sizeof(IMRPhenomXHMPhaseCoefficients));
     
-    REAL8 Amp0, amp, Mf;
+    REAL8 Amp0 = 0, amp = 0, Mf;
     IMRPhenomX_UsefulPowers powers_of_Mf;
     
     if(ell ==2 && abs(emm) == 2){
@@ -2135,19 +2528,21 @@ int XLALSimIMRPhenomXHMAmplitude(
         IMRPhenomXHM_SetHMWaveformVariables(ell, abs(emm), pWFHM, pWF, qnms, lalParams_aux);
         LALFree(qnms);
         
-        Amp0 = pWFHM->Amp0;
-        
-        /* Allocate and initialize the PhenomXHM lm phase and amp coefficients struct */
-        IMRPhenomXHM_FillAmpFitsArray(pAmp);
-        
-        /* Get coefficients for Amplitude and phase */
-        if (pWFHM->MixingOn == 1)  {
-            IMRPhenomXHM_FillPhaseFitsArray(pPhase);
-            IMRPhenomXGetPhaseCoefficients(pWF, pPhase22);
-            GetSpheroidalCoefficients(pPhase, pPhase22, pWFHM, pWF);
-            IMRPhenomXGetAmplitudeCoefficients(pWF, pAmp22);
+        if(pWFHM->Ampzero==0){
+            Amp0 = pWFHM->Amp0;
+            
+            /* Allocate and initialize the PhenomXHM lm phase and amp coefficients struct */
+            IMRPhenomXHM_FillAmpFitsArray(pAmp);
+            
+            /* Get coefficients for Amplitude and phase */
+            if (pWFHM->MixingOn == 1)  {
+                IMRPhenomXHM_FillPhaseFitsArray(pPhase);
+                IMRPhenomXGetPhaseCoefficients(pWF, pPhase22);
+                GetSpheroidalCoefficients(pPhase, pPhase22, pWFHM, pWF);
+                IMRPhenomXGetAmplitudeCoefficients(pWF, pAmp22);
+            }
+            IMRPhenomXHM_GetAmplitudeCoefficients(pAmp, pPhase, pAmp22, pPhase22, pWFHM, pWF);
         }
-        IMRPhenomXHM_GetAmplitudeCoefficients(pAmp, pPhase, pAmp22, pPhase22, pWFHM, pWF);
     }
         
     *amplitude = XLALCreateREAL8Sequence(freqs->length);     
@@ -2167,12 +2562,12 @@ int XLALSimIMRPhenomXHMAmplitude(
             if(ell == 2 && abs(emm) == 2){
                 amp = IMRPhenomX_Amplitude_22(Mf, &powers_of_Mf, pAmp22, pWF);
             }
-            else{
+            else if (pWFHM->Ampzero==0){
                 if(pWFHM->MixingOn==1){
-                    amp = IMRPhenomXHM_Amplitude_ModeMixing(Mf, &powers_of_Mf, pAmp, pPhase, pWFHM, pAmp22, pPhase22, pWF);
+                    amp = IMRPhenomXHM_Amplitude_ModeMixing(&powers_of_Mf, pAmp, pPhase, pWFHM, pAmp22, pPhase22, pWF);
                 }
                 else{
-                    amp = IMRPhenomXHM_Amplitude_noModeMixing(Mf, &powers_of_Mf, pAmp, pWFHM);
+                    amp = IMRPhenomXHM_Amplitude_noModeMixing(&powers_of_Mf, pAmp, pWFHM);
                 }
             }            
             ((*amplitude)->data)[idx] = Amp0 * amp;
@@ -2311,12 +2706,12 @@ int XLALSimIMRPhenomXHMPhase(
     IMRPhenomXAmpCoefficients *pAmp22=(IMRPhenomXAmpCoefficients *) XLALMalloc(sizeof(IMRPhenomXAmpCoefficients));
     IMRPhenomXPhaseCoefficients *pPhase22=(IMRPhenomXPhaseCoefficients *) XLALMalloc(sizeof(IMRPhenomXPhaseCoefficients));
     IMRPhenomXGetPhaseCoefficients(pWF, pPhase22);
-    
+
     /* Allocate and initialize the PhenomXHM lm amplitude coefficients struct */
     IMRPhenomXHMAmpCoefficients *pAmp = (IMRPhenomXHMAmpCoefficients*) XLALMalloc(sizeof(IMRPhenomXHMAmpCoefficients));
     IMRPhenomXHMPhaseCoefficients *pPhase = (IMRPhenomXHMPhaseCoefficients*) XLALMalloc(sizeof(IMRPhenomXHMPhaseCoefficients));
     
-    REAL8 lina = 0, linb = 0;
+    REAL8 lina = 0, linb = 0, inveta=1./pWF->eta;
     if (ell == 2 && abs(emm) == 2){
         /* Initialize a struct containing useful powers of Mf at fRef */
         IMRPhenomX_UsefulPowers powers_of_MfRef;
@@ -2329,7 +2724,7 @@ int XLALSimIMRPhenomXHMPhase(
         IMRPhenomX_Phase_22_ConnectionCoefficients(pWF,pPhase22);
         linb = IMRPhenomX_TimeShift_22(pPhase22, pWF);
         /* Calculate phase at reference frequency: phifRef = 2.0*phi0 + LAL_PI_4 + PhenomXPhase(fRef) */
-        pWF->phifRef = -(1/pWF->eta * IMRPhenomX_Phase_22(pWF->MfRef, &powers_of_MfRef, pPhase22, pWF) + linb*pWF->MfRef + lina) + 2.0*pWF->phi0 + LAL_PI_4;
+        pWF->phifRef = -(inveta*IMRPhenomX_Phase_22(pWF->MfRef, &powers_of_MfRef, pPhase22, pWF) + linb*pWF->MfRef + lina) + 2.0*pWF->phi0 + LAL_PI_4;
     }
     else{ 
         // allocate qnm struct
@@ -2376,16 +2771,15 @@ int XLALSimIMRPhenomXHMPhase(
         else
         {
             if (ell ==2 && abs(emm) == 2){
-                phi = IMRPhenomX_Phase_22(Mf, &powers_of_Mf, pPhase22, pWF);
-                phi /= pWF->eta;
+                phi = inveta*IMRPhenomX_Phase_22(Mf, &powers_of_Mf, pPhase22, pWF);
                 phi += linb*Mf + lina + pWF->phifRef;
             }
             else{
                 if(pWFHM->MixingOn==1){
-                    phi = IMRPhenomXHM_Phase_ModeMixing(Mf, &powers_of_Mf, pAmp, pPhase, pWFHM, pAmp22, pPhase22, pWF);
+                    phi = IMRPhenomXHM_Phase_ModeMixing(&powers_of_Mf, pAmp, pPhase, pWFHM, pAmp22, pPhase22, pWF);
                 }
                 else{
-                    phi = IMRPhenomXHM_Phase_noModeMixing(Mf, &powers_of_Mf, pPhase, pWFHM, pWF);
+                    phi = IMRPhenomXHM_Phase_noModeMixing(&powers_of_Mf, pPhase, pWFHM, pWF);
                 }
             }            
             ((*phase)->data)[idx] = phi + addpi;
@@ -2412,5 +2806,99 @@ int XLALSimIMRPhenomXHMPhase(
     
     return XLAL_SUCCESS;
 }
+
+
+  
+/* Compute XHM phase and phase derivative for a given Mf using the inputs as shown below. This function has been created to reduce code duplication in the PNR Coprecessing model. See IMRPhenomX_FullPhase_22 for the analagous XAS function. Both functions are designed to be used in in initialization routines, and not for evaluating the phase at many frequencies. We name this function "IMRPhenomXHM_Phase_for_initialization" becuase "IMRPhenomXHM_Phase" is already used in the multibanding code. */  
+INT4 IMRPhenomXHM_Phase_for_Initialization(
+  double *phase,
+  double *dphase,
+  double Mf,
+  INT4 ell,
+  INT4 emm,
+  IMRPhenomXWaveformStruct *pWF,
+  LALDict *lalParams 
+){
+
+  // Define an int to hold status values
+  UINT4 status;
+  
+  // allocate qnm struct
+  QNMFits *qnms = (QNMFits *) XLALMalloc(sizeof(QNMFits));
+  IMRPhenomXHM_Initialize_QNMs(qnms);
+  
+  // Populate, pWFHM, the waveform struct for the non-prec HM moment
+  IMRPhenomXHMWaveformStruct *pWFHM = (IMRPhenomXHMWaveformStruct *) XLALMalloc(sizeof(IMRPhenomXHMWaveformStruct));
+  IMRPhenomXHM_SetHMWaveformVariables(ell, emm, pWFHM, pWF, qnms, lalParams);
+  LALFree(qnms);
+
+  /* Allocate coefficients of 22 mode */
+  IMRPhenomXAmpCoefficients *pAmp22 = (IMRPhenomXAmpCoefficients *) XLALMalloc(sizeof(IMRPhenomXAmpCoefficients));
+  IMRPhenomXPhaseCoefficients *pPhase22 = (IMRPhenomXPhaseCoefficients *) XLALMalloc(sizeof(IMRPhenomXPhaseCoefficients));
+  //
+  IMRPhenomXGetPhaseCoefficients(pWF, pPhase22);
+
+  /* Allocate and initialize the PhenomXHM lm amplitude and phae coefficients struct */
+  IMRPhenomXHMAmpCoefficients *pAmp = (IMRPhenomXHMAmpCoefficients*) XLALMalloc(sizeof(IMRPhenomXHMAmpCoefficients));
+  IMRPhenomXHMPhaseCoefficients *pPhase = (IMRPhenomXHMPhaseCoefficients*) XLALMalloc(sizeof(IMRPhenomXHMPhaseCoefficients));
+
+  /* Allocate and initialize the PhenomXHM lm phase and amp coefficients struct */
+  IMRPhenomXHM_FillAmpFitsArray(pAmp);
+  IMRPhenomXHM_FillPhaseFitsArray(pPhase);
+  
+  /* Get coefficients for Amplitude and phase */
+  if (pWFHM->MixingOn == 1) {
+    // For mode with mixing we need the spheroidal coeffs of the 32 phase and the 22 amplitude coeffs.
+    GetSpheroidalCoefficients(pPhase, pPhase22, pWFHM, pWF);
+    IMRPhenomXGetAmplitudeCoefficients(pWF, pAmp22);
+  }
+  IMRPhenomXHM_GetAmplitudeCoefficients(pAmp, pPhase, pAmp22, pPhase22, pWFHM, pWF);
+  IMRPhenomXHM_GetPhaseCoefficients(pAmp, pPhase, pAmp22, pPhase22, pWFHM, pWF,lalParams);
+  
+  // Compute XHM phase at Mf
+  
+  //
+  IMRPhenomX_UsefulPowers powers_of_Mf;
+  status = IMRPhenomX_Initialize_Powers(&powers_of_Mf,Mf);
+  
+  //
+  if(pWFHM->MixingOn==1){
+    //
+    *phase = IMRPhenomXHM_Phase_ModeMixing(&powers_of_Mf, pAmp, pPhase, pWFHM, pAmp22, pPhase22, pWF);
+    //
+    *dphase = IMRPhenomXHM_dPhase_ModeMixing(Mf, &powers_of_Mf, pAmp, pPhase, pWFHM, pAmp22, pPhase22, pWF);
+  } 
+  else 
+  {
+    //
+    *phase = IMRPhenomXHM_Phase_noModeMixing(&powers_of_Mf, pPhase, pWFHM, pWF);
+    //
+    *dphase = IMRPhenomXHM_dPhase_noModeMixing(Mf, &powers_of_Mf, pPhase, pWFHM, pWF);
+  }
+  
+  //
+  if(ell%2 != 0){
+    *phase += LAL_PI;
+  }
+  
+  //
+  *phase = fmod(*phase,2*LAL_PI);
+  if ( *phase < 0 ){
+    *phase += 2*LAL_PI;
+  }
+  
+  //
+  LALFree(pWFHM);
+  LALFree(pAmp);
+  LALFree(pPhase);
+  LALFree(pAmp22);
+  LALFree(pPhase22);
+  
+  //
+  return status;
+    
+}
+
+
 /** @}
 * @} **/

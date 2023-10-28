@@ -143,7 +143,8 @@ spinParams=spinParamsPrec+spinParamsEff+spinParamsAli
 cosmoParam=['m1_source','m2_source','mtotal_source','mc_source','redshift','mf_source','mf_source_evol','mf_source_nonevol','m1_source_maxldist','m2_source_maxldist','mtotal_source_maxldist','mc_source_maxldist','redshift_maxldist','mf_source_maxldist','mf_source_maxldist_evol','mf_source_maxldist_nonevol']
 #Strong Field
 ppEParams=['ppEalpha','ppElowera','ppEupperA','ppEbeta','ppElowerb','ppEupperB','alphaPPE','aPPE','betaPPE','bPPE']
-tigerParams=['dchi%i'%(i) for i in range(8)] + ['dchi%il'%(i) for i in [5,6] ] + ['dxi%d'%(i+1) for i in range(6)] + ['dalpha%i'%(i+1) for i in range(5)] + ['dbeta%i'%(i+1) for i in range(3)] + ['dsigma%i'%(i+1) for i in range(4)]
+tigerParams= ['dchi%i'%(i) for i in range(8)] + ['dchi%il'%(i) for i in [5,6] ] + ['dxi%d'%(i+1) for i in range(6)] + ['dalpha%i'%(i+1) for i in range(5)] + ['dbeta%i'%(i+1) for i in range(3)] + ['dsigma%i'%(i+1) for i in range(4)] + ['dipolecoeff'] + ['dchiminus%i'%(i) for i in [1,2]] + ['dchiMinus%i'%(i) for i in [1,2]] + ['db1','db2','db3','db4','dc1','dc2','dc4','dcl']
+qnmtestParams=['domega220','dtau220','domega210','dtau210','domega330','dtau330','domega440','dtau440','domega550','dtau550']
 bransDickeParams=['omegaBD','ScalarCharge1','ScalarCharge2']
 massiveGravitonParams=['lambdaG']
 lorentzInvarianceViolationParams=['log10lambda_a','lambda_a','log10lambda_eff','lambda_eff','log10livamp','liv_amp']
@@ -151,8 +152,12 @@ tidalParams=['lambda1','lambda2','lam_tilde','dlam_tilde','lambdat','dlambdat','
 fourPiecePolyParams=['logp1','gamma1','gamma2','gamma3']
 spectralParams=['sdgamma0','sdgamma1','sdgamma2','sdgamma3']
 energyParams=['e_rad', 'e_rad_evol', 'e_rad_nonevol', 'l_peak', 'l_peak_evol', 'l_peak_nonevol', 'e_rad_maxldist', 'e_rad_maxldist_evol', 'e_rad_maxldist_nonevol']
-spininducedquadParams = ['dquadmon1','dquadmon2','dquadmona', 'dquadmona']
-strongFieldParams=ppEParams+tigerParams+bransDickeParams+massiveGravitonParams+tidalParams+fourPiecePolyParams+spectralParams+energyParams+lorentzInvarianceViolationParams+spininducedquadParams
+spininducedquadParams = ['dquadmon1', 'dquadmon2', 'dquadmona', 'dquadmona']
+strongFieldParams = (
+    ppEParams + tigerParams + bransDickeParams + massiveGravitonParams
+    + tidalParams + fourPiecePolyParams + spectralParams + energyParams
+    + lorentzInvarianceViolationParams + spininducedquadParams + qnmtestParams
+)
 
 #Extrinsic
 distParams=['distance','distMPC','dist','distance_maxl']
@@ -177,7 +182,7 @@ for derived_time in ['h1_end_time','l1_end_time','v1_end_time','h1l1_delay','l1v
     greedyBinSizes[derived_time]=greedyBinSizes['time']
 for derived_phase in relativePhaseParams:
     greedyBinSizes[derived_phase]=0.05
-for param in tigerParams + bransDickeParams + massiveGravitonParams + lorentzInvarianceViolationParams:
+for param in tigerParams + bransDickeParams + massiveGravitonParams + lorentzInvarianceViolationParams + qnmtestParams:
     greedyBinSizes[param]=0.01
 for param in tidalParams:
     greedyBinSizes[param]=2.5
@@ -430,7 +435,7 @@ def plot_label(param):
     ra_names = ['rightascension','ra']
     dec_names = ['declination','dec']
     phase_names = ['phi_orb', 'phi', 'phase', 'phi0']
-    gr_test_names = ['dchi%d'%i for i in range(8)]+['dchil%d'%i for i in [5,6]]+['dxi%d'%(i+1) for i in range(6)]+['dalpha%d'%(i+1) for i in range(5)]+['dbeta%d'%(i+1) for i in range(3)]+['dsigma%d'%(i+1) for i in range(4)]
+    gr_test_names = ['dchiMinus2','dchiMinus1'] + ['dchi%d'%i for i in range(8)]+['dchil%d'%i for i in [5,6]]+['dxi%d'%(i+1) for i in range(6)]+['dalpha%d'%(i+1) for i in range(5)]+['dbeta%d'%(i+1) for i in range(3)]+['dsigma%d'%(i+1) for i in range(4)] + ['dipolecoeff'] + ['db1','db2','db3','db4','dc1','dc2','dc4','dcl']
 
     labels={
         'm1':r'$m_1\,(\mathrm{M}_\odot)$',
@@ -538,16 +543,30 @@ def plot_label(param):
         'polar_eccentricity':r'$\epsilon_{polar}$',
         'polar_angle':r'$\alpha_{polar}$',
         'alpha':r'$\alpha_{polar}$',
+        'dchiminus1':r'$d\chi_{-1}$',
+        'dchiminus2':r'$d\chi_{-2}$',
         'dchi0':r'$d\chi_0$',
         'dchi1':r'$d\chi_1$',
         'dchi2':r'$d\chi_2$',
         'dchi3':r'$d\chi_3$',
+        'dchi3S':r'$d\chi_{3S}$',
+        'dchi3NS':r'$d\chi_{3NS}$',
         'dchi4':r'$d\chi_4$',
+        'dchi4S':r'$d\chi_{4S}$',
+        'dchi4NS':r'$d\chi_{4NS}$',
         'dchi5':r'$d\chi_5$',
-        'dchi5l':r'$d\chi_{5}^{(l)}$',
+        'dchi5S':r'$d\chi_{5S}$',
+        'dchi5NS':r'$d\chi_{5NS}$',
+        'dchi5l':r'$d\chi_{5l}$',
+        'dchi5lS':r'$d\chi_{5lS}$',
+        'dchi5lNS':r'$d\chi_{5lNS}$',
         'dchi6':r'$d\chi_6$',
-        'dchi6l':r'$d\chi_{6}^{(l)}$',
+        'dchi6S':r'$d\chi_{6S}$',
+        'dchi6NS':r'$d\chi_{6NS}$',
+        'dchi6l':r'$d\chi_{6l}$',
         'dchi7':r'$d\chi_7$',
+        'dchi7S':r'$d\chi_{7S}$',
+        'dchi7NS':r'$d\chi_{7NS}$',
         'dxi1':r'$d\xi_1$',
         'dxi2':r'$d\xi_2$',
         'dxi3':r'$d\xi_3$',
@@ -570,19 +589,42 @@ def plot_label(param):
         'dquadmon2':r'$\delta\kappa_2$',
         'dquadmons':r'$\delta\kappa_s$',
         'dquadmona':r'$\delta\kappa_a$',
+        'domega220':r'$d\omega_{220}$',
+        'dtau220':r'$d\tau_{220}$',
+        'domega210':r'$d\omega_{210}$',
+        'dtau210':r'$d\tau_{210}$',
+        'domega330':r'$d\omega_{330}$',
+        'dtau330':r'$d\tau_{330}$',
+        'domega440':r'$d\omega_{440}$',
+        'dtau440':r'$d\tau_{440}$',
+        'domega550':r'$d\omega_{550}$',
+        'dtau550':r'$d\tau_{550}$',
         'optimal_snr':r'$\rho^{opt}$',
         'h1_optimal_snr':r'$\rho^{opt}_{H1}$',
         'l1_optimal_snr':r'$\rho^{opt}_{L1}$',
         'v1_optimal_snr':r'$\rho^{opt}_{V1}$',
         'matched_filter_snr':r'$\rho^{MF}$',
         'lambdas':r'$\Lambda_S$',
-        'bluni' : r'$BL_{uniform}$',
+        'bluni':r'$BL_{uniform}$',
         'log10lambda_a':r'$\log\lambda_{\mathbb{A}} [\mathrm{m}]$',
         'log10lambda_eff':r'$\log\lambda_{eff} [\mathrm{m}]$',
         'lambda_eff':r'$\lambda_{eff} [\mathrm{m}]$',
         'lambda_a':r'$\lambda_{\mathbb{A}} [\mathrm{m}]$',
         'liv_amp':r'$\mathbb{A} [\mathrm{{eV}^{2-\alpha}}]$' ,
-        'log10livamp':r'$\log \mathbb{A}[\mathrm{{eV}^{2-\alpha}}]$'
+        'log10livamp':r'$\log \mathbb{A}[\mathrm{{eV}^{2-\alpha}}]$',
+        'dchikappaS':r'$d\chi_{\kappa_{S}}$',
+        'dchikappaA':r'$d\chi_{\kappa_{A}}$',
+        'dchiMinus1':r'$d\chi_{-1}$',
+        'dchiMinus2':r'$d\chi_{-2}$',
+        'db1':r'$\delta b_1$',
+        'db2':r'$\delta b_2$',
+        'db3':r'$\delta b_3$',
+        'db4':r'$\delta b_4$',
+        'dc1':r'$\delta c_1$',
+        'dc2':r'$\delta c_2$',
+        'dc4':r'$\delta c_4$',
+        'dcl':r'$\delta c_l$',
+
       }
 
     # Handle cases where multiple names have been used

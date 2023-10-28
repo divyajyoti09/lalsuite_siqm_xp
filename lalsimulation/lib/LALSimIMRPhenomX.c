@@ -59,8 +59,9 @@
 #include "LALSimIMRPhenomX_intermediate.h"
 #include "LALSimIMRPhenomX_inspiral.h"
 #include "LALSimIMRPhenomX_internals.c"
-//#include "LALSimIMRPhenomX_tidal.c"
 #include "LALSimIMRPhenomX_precession.c"
+#include "LALSimIMRPhenomX_PNR.c"
+#include "LALSimIMRPhenomX_AntisymmetricWaveform.c"
 
 /* Note: This is declared in LALSimIMRPhenomX_internals.c and avoids namespace clashes */
 IMRPhenomX_UsefulPowers powers_of_lalpi;
@@ -81,10 +82,15 @@ IMRPhenomX_UsefulPowers powers_of_lalpi;
  * These are frequency-domain models for compact binaries at comparable and extreme mass ratios,
  * tuned to numerical-relativity simulations.
  *  * IMRPhenomXAS model for the 22 mode of non-precessing binaries. https://arxiv.org/abs/2001.11412 ; DCC link: https://dcc.ligo.org/P2000018
- *  * IMRPhenomXHM model with subdominant modes non-precessing binaries. https://arxiv.org/abs/2001.10914 ; DCC link: https://dcc.ligo.org/P1900393
+ *  * IMRPhenomXHM model with subdominant modes for non-precessing binaries. https://arxiv.org/abs/2001.10914 ; DCC link: https://dcc.ligo.org/P1900393
  *  * Multibanding for IMRPhenomXHM. https://arxiv.org/abs/2001.10897 ; DCC link: https://dcc.ligo.org/P1900391
- *  * IMRPhenomXP model for the 22 mode of non-precessing binaries. https://arxiv.org/abs/2004.06503 ; DCC link: https://dcc.ligo.org/P2000039
+ *  * IMRPhenomXP model for the 22 mode (in the coprecessing frame) of precessing binaries. https://arxiv.org/abs/2004.06503 ; DCC link: https://dcc.ligo.org/P2000039
  *  * IMRPhenomXPHM model with subdominant modes for precessing binaries. https://arxiv.org/abs/2004.06503 ; DCC link: https://dcc.ligo.org/P2000039
+ *
+ * The previous models are for binary black holes. There are also versions for binary neutron stars, using the extension of the binary black hole models
+ * given in https://arxiv.org/abs/1905.06011 ; DCC link: https://dcc.ligo.org/P1900148
+ *  * IMRPhenomXAS_NRTidalv2 model for the 22 mode of non-precessing binary neutron stars
+ *  * IMRPhenomXP_NRTidalv2 model for the 22 mode (in the coprecessing frame) of precessing binary neutron stars
  *
  * @review IMRPhenomXAS & IMRPhenomXHM reviewed by Maria Haney, Patricia Schmidt,
  * Roberto Cotesta, Anuradha Samajdar, Jonathan Thompson, N.V. Krishnendu.
@@ -93,6 +99,9 @@ IMRPhenomX_UsefulPowers powers_of_lalpi;
  * Combined review wiki:
  * https://git.ligo.org/waveforms/reviews/imrphenomx/-/wikis/home
  *
+ * @review IMRPhenomXAS_NRTidalv2 & IMRPhenomXP_NRTidalv2 plus SpinTaylor precession option also applicable to IMRPhenomXP & IMRPhenomXPHM reviewed by Maria Haney,
+ * Sarp Akcay, N.V. Krishnendu, Shubhanshu Tiwari.
+ * Review wiki: https://git.ligo.org/waveforms/reviews/imrphenomxp_nrtidalv2/-/wikis/home
  *
  */
 
@@ -108,8 +117,8 @@ IMRPhenomX_UsefulPowers powers_of_lalpi;
   * @brief C code for IMRPhenomXAS phenomenological waveform model.
   *
   * This is an aligned-spin frequency domain model for the 22 mode.
-  * See G.Pratten et al for details. Any studies that use this waveform model should include
-  * a reference to both of this paper.
+  * See G.Pratten et al arXiv:2001.11412 for details. Any studies that use this waveform model should include
+  * a reference to this paper.
   *
   * @note The model was calibrated to mass-ratios from 1 to 1000.
   * The calibration points will be given in forthcoming papers.
@@ -505,6 +514,11 @@ int IMRPhenomXASGenerateFD(
   /* Inherits debug flag from waveform struct */
   UINT4 debug = PHENOMXDEBUG;
 
+  /* Set tidal version */
+  NRTidal_version_type NRTidal_version;
+  
+  NRTidal_version=IMRPhenomX_SetTidalVersion(lalParams);
+
   if(debug)
   {
     printf("\n **** Now in IMRPhenomXASGenerateFD... **** \n");
@@ -529,6 +543,22 @@ int IMRPhenomXASGenerateFD(
 
   /* Initialize frequency sequence */
   REAL8Sequence *freqs = NULL;
+
+  /* Initialize tidal corrections (following tidal code modified from LALSimIMRPhenomP.c) */
+      
+  REAL8Sequence *phi_tidal = NULL;
+  REAL8Sequence *amp_tidal = NULL;
+  REAL8Sequence *planck_taper = NULL;
+      
+
+  /* Set matter parameters (set to zero in pWF if NRTidal additions are not turned on) */
+  REAL8 lambda1 = pWF->lambda1;
+  REAL8 lambda2 = pWF->lambda2;
+
+  /* New variables needed for the NRTidalv2 model */
+  REAL8 X_A = pWF->m1; // Already scaled by Mtot
+  REAL8 X_B = pWF->m2; // Ibid.
+  REAL8 pfaN = 3./(128.*X_A*X_B);
 
   /* If deltaF is non-zero then we need to generate a uniformly sampled frequency grid of spacing deltaF. Start at f = 0. */
   if(pWF->deltaF > 0)
@@ -631,6 +661,8 @@ int IMRPhenomXASGenerateFD(
   pPhase22 = XLALMalloc(sizeof(IMRPhenomXPhaseCoefficients));
   status   = IMRPhenomXGetPhaseCoefficients(pWF,pPhase22);
   XLAL_CHECK(XLAL_SUCCESS == status, XLAL_EFUNC, "Error: IMRPhenomXGetPhaseCoefficients failed.\n");
+  // initialize coefficients of tidal phase
+  if(NRTidal_version!=NoNRT_V) IMRPhenomXGetTidalPhaseCoefficients(pWF,pPhase22,NRTidal_version);
 
   if(debug)
   {
@@ -653,11 +685,60 @@ int IMRPhenomXASGenerateFD(
   IMRPhenomX_Phase_22_ConnectionCoefficients(pWF,pPhase22);
   double linb=IMRPhenomX_TimeShift_22(pPhase22, pWF);
 
+  //
+  INT4 APPLY_PNR_DEVIATIONS = pWF->APPLY_PNR_DEVIATIONS;
+  INT4 PNRForceXHMAlignment = pWF->IMRPhenomXPNRForceXHMAlignment;
+  // If applying PNR deviations, then we want to be able to refer to some non-PNR waveform properties. For that, we must compute the struct for when PNR is off (and specifically, XAS is wanted).
+  if ( APPLY_PNR_DEVIATIONS && PNRForceXHMAlignment ) {
+
+    /*<-.<-.<-.<-.<-.<-.<-.<-.<-.<-.<-.<-.<-.<-.<-.<-.<-.<-.<-.<-.<-.<-.<-.<-.<-.<-.
+    Shift phifRef and linb so that the PNR CoPrecessing model is aligned with XHM
+    ->.->.->.->.->.->.->.->.->.->.->.->.->.->.->.->.->.->.->.->.->.->.->.->.->.->.*/
+
+    // // Development printing
+    // printf("** Enforcing XAS Phase Alignment\n");
+    // printf("(1) linb = %f\n",linb);
+
+
+    IMRPhenomX_PNR_EnforceXASPhaseAlignment(&linb,pWF,pPhase22);
+
+    // // Development printing
+    // printf("(2) linb = %f\n",linb);
+
+  }
+  // extra contribution to phi(fRef) due to tidal corrections
+  double phiTfRef = 0.;
+    
+  REAL8 f_final=freqs->data[freqs->length-1];
+  
+  // correct for time and phase shifts due to tidal phase
+  if(NRTidal_version!=NoNRT_V){
+      
+        REAL8 f_merger = XLALSimNRTunedTidesMergerFrequency(pWF->Mtot, pWF->kappa2T, pWF->q);
+        if(f_merger<f_final)
+            f_final = f_merger;
+        
+        IMRPhenomX_UsefulPowers powers_of_ffinal;
+        REAL8 Mf_final = f_final*pWF->M_sec;
+        status = IMRPhenomX_Initialize_Powers(&powers_of_ffinal,Mf_final);
+        XLAL_CHECK(XLAL_SUCCESS == status, status, "IMRPhenomX_Initialize_Powers failed for f_final.\n");
+        REAL8 dphi_fmerger=1/pWF->eta*IMRPhenomX_dPhase_22(Mf_final, &powers_of_ffinal, pPhase22, pWF)+linb-IMRPhenomX_TidalPhaseDerivative(&powers_of_ffinal, pWF, pPhase22, NRTidal_version);
+        REAL8 tshift = -dphi_fmerger;
+        linb+=tshift;
+        phiTfRef = -IMRPhenomX_TidalPhase(&powers_of_MfRef, pWF, pPhase22, NRTidal_version);
+        
+    }
+    
+
   /* 1/eta is used to re-scale phase */
   REAL8 inveta    = (1.0 / pWF->eta);
 
   /* Calculate phase at reference frequency: phifRef = 2.0*phi0 + LAL_PI_4 + PhenomXPhase(fRef) */
-  pWF->phifRef = -(inveta * IMRPhenomX_Phase_22(pWF->MfRef, &powers_of_MfRef, pPhase22, pWF) + linb*pWF->MfRef + lina) + 2.0*pWF->phi0 + LAL_PI_4;
+  double phifRef = -(inveta * IMRPhenomX_Phase_22(pWF->MfRef, &powers_of_MfRef, pPhase22, pWF) + phiTfRef + linb*pWF->MfRef + lina) + 2.0*pWF->phi0 + LAL_PI_4;
+
+  // Define pWF->phifRef and phifRef separately, as "phifRef" may ultimately differ superficially
+  pWF->phifRef = phifRef;
+  
 
   /*
       Here we declare explicit REAL8 variables for main loop in order to avoid numerous
@@ -692,12 +773,27 @@ int IMRPhenomXASGenerateFD(
   /* initial_status used to track  */
   UINT4 initial_status = XLAL_SUCCESS;
 
+  if (NRTidal_version!=NoNRT_V) {
+    int ret = 0;
+    UINT4 L_fCut = freqs->length;
+    phi_tidal = XLALCreateREAL8Sequence(L_fCut);
+    amp_tidal = XLALCreateREAL8Sequence(L_fCut);
+    planck_taper = XLALCreateREAL8Sequence(L_fCut);
+    /* Get FD tidal phase correction and amplitude factor */
+    ret = XLALSimNRTunedTidesFDTidalPhaseFrequencySeries(phi_tidal, amp_tidal, planck_taper, freqs, pWF->m1_SI, pWF->m2_SI, lambda1, lambda2, NRTidal_version);
+    XLAL_CHECK(XLAL_SUCCESS == ret, ret, "XLALSimNRTunedTidesFDTidalPhaseFrequencySeries Failed.");
+  }
+
   /* Now loop over main driver to generate waveform:  h(f) = A(f) * Exp[I phi(f)] */
   #pragma omp parallel for
   for (UINT4 idx = 0; idx < freqs->length; idx++)
   {
     double Mf    = Msec * freqs->data[idx];   // Mf is declared locally inside the loop
     UINT4 jdx    = idx  + offset;             // jdx is declared locally inside the loop
+
+    /* We do not want to generate the waveform at frequencies > f_max (default = 0.3 Mf) */
+    if(Mf <= (pWF->f_max_prime * pWF->M_sec))
+    {
 
     /* Initialize a struct containing useful powers of Mf */
     IMRPhenomX_UsefulPowers powers_of_Mf;
@@ -728,9 +824,9 @@ int IMRPhenomXASGenerateFD(
         phi = IMRPhenomX_Intermediate_Phase_22_AnsatzInt(Mf, &powers_of_Mf, pWF, pPhase22) + C1IM + (C2IM * Mf);
       }
 
-	  /* Scale phase by 1/eta */
-	  phi  *= inveta;
-      phi  += linb*Mf + lina + pWF->phifRef;
+        /* Scale phase by 1/eta */
+        phi  *= inveta;
+        phi  += linb*Mf + lina + phifRef;
 
 	  /* Construct amplitude */
 	  if(Mf < fAmpIN)
@@ -746,15 +842,70 @@ int IMRPhenomXASGenerateFD(
         amp = IMRPhenomX_Intermediate_Amp_22_Ansatz(Mf, &powers_of_Mf, pWF, pAmp22);
       }
 
-	  /* Reconstruct waveform: h(f) = A(f) * Exp[I phi(f)] */
-      ((*htilde22)->data->data)[jdx] = Amp0 * powers_of_Mf.m_seven_sixths * amp * cexp(I * phi);
+        // /* Reconstruct waveform: h(f) = A(f) * Exp[I phi(f)] */
+        // ((*htilde22)->data->data)[jdx] = Amp0 * powers_of_Mf.m_seven_sixths * amp * cexp(I * phi);
+
+        /* NOTE that the above lines are commented out to clarify legacy code structure.
+         HERE, we allow the user to toggle output of ONLY the model's phase using lalParams.
+         The intended use of this option is to enable exact output of the phase, without unwanted numerical effects that result from unwrapping the complete waveform. In particular, at low frequencies, the phase may vary so quickly that adjacent frequency points correctly differ by more than 2*pi, thus limiting unwrap routines which assume that this is not the case.
+        */
+        if ( pWF->PhenomXOnlyReturnPhase ) {
+          //
+          ((*htilde22)->data->data)[jdx] = phi;
+        } else {
+        /* Add NRTidal phase, if selected, code adapted from LALSimIMRPhenomP.c */
+
+      if (NRTidal_version!=NoNRT_V) {
+          
+          REAL8 phaseTidal = phi_tidal->data[idx];
+          double ampTidal = amp_tidal->data[idx];
+          double window = planck_taper->data[idx];
+
+          /* Add spin-induced quadrupole moment terms to tidal phasing */
+
+          /* 2PN terms */
+          phaseTidal += pfaN * pPhase22->c2PN_tidal* powers_of_lalpi.m_one_third * powers_of_Mf.m_one_third;
+
+          /* 3PN terms */
+          phaseTidal += pfaN * pPhase22->c3PN_tidal* powers_of_lalpi.one_third * powers_of_Mf.one_third;
+
+          /* 3.5PN terms are only in NRTidalv2 */
+          if (NRTidal_version == NRTidalv2_V) {
+              phaseTidal += pfaN * pPhase22->c3p5PN_tidal * powers_of_lalpi.two_thirds * powers_of_Mf.two_thirds;
+          }
+            /* Reconstruct waveform with NRTidal terms included: h(f) = [A(f) + A_tidal(f)] * Exp{I [phi(f) - phi_tidal(f)]} * window(f) */
+          ((*htilde22)->data->data)[jdx] = pWF->amp0 * (pWF->ampNorm * powers_of_Mf.m_seven_sixths * amp + 2*sqrt(1./5.)*powers_of_lalpi.sqrt * ampTidal) * cexp(I * (phi - phaseTidal))* window;
+          
+      } 
+      else if (NRTidal_version == NoNRT_V) {
+	/* Reconstruct waveform: h(f) = A(f) * Exp[I phi(f)] */
+  	((*htilde22)->data->data)[jdx] = Amp0 * powers_of_Mf.m_seven_sixths * amp * cexp(I * phi);
+        }
+        else {
+	XLAL_PRINT_INFO("Warning: Only NRTidal, NRTidalv2, and NoNRT NRTidal_version values allowed and NRTidal is not implemented completely in IMRPhenomX*.");
+      }
     }
+  }
+    }
+  else
+
+    {
+        /* Mf > Mf_max, so return 0 */
+        ((*htilde22)->data->data)[jdx] = 0.0 + I*0.0;
+    }
+    
   }
 
   // Free allocated memory
   LALFree(pAmp22);
   LALFree(pPhase22);
   XLALDestroyREAL8Sequence(freqs);
+    
+  // Free allocated memory for tidal extension
+  XLALDestroyREAL8Sequence(phi_tidal);
+  XLALDestroyREAL8Sequence(amp_tidal);
+  XLALDestroyREAL8Sequence(planck_taper);
+    
   if(lalParams_In == 1)
   {
     XLALDestroyDict(lalParams);
@@ -780,6 +931,8 @@ int IMRPhenomXCheckForUniformFrequencies(
 
   return IsUniform;
 };
+
+
 
 
 /* ******** PRECESSING IMR PHENOMENOLOGICAL WAVEFORM: IMRPhenomXP ********* */
@@ -810,10 +963,10 @@ int IMRPhenomXPGenerateFD(
  * @brief C code for IMRPhenomXP phenomenological waveform model.
  *
  * This is a precessing frequency domain model.
- * See Pratten, García-Quirós, Colleoni et al arXiv:XXXX.YYYY for details.
+ * See Pratten, García-Quirós, Colleoni et al arXiv:2004.06503 for details.
 *  Studies using this model are kindly asked
  * to cite Pratten et al arXiv:2001.11412, García-Quirós et al arXiv:2001.10914
- * and Pratten, García-Quirós, Colleoni et al arXiv:XXXX.YYYY.
+ * and Pratten, García-Quirós, Colleoni et al arXiv:2004.06503.
  *
  * @note The underlying aligned-spin model was calibrated for
  * mass-ratios 1 to 1000.
@@ -827,7 +980,7 @@ int IMRPhenomXPGenerateFD(
  *
  *  IMRPhenomXP/HM is based on a modular framework. User can specify flags to control how Euler angles are calculated, the final spin
  *  parameterization and the conventions used in reconstructing the waveform in the LAL frame. A detailed discussion can be
- *  found in arXiv:XXXX.YYYY. The various flags are detailed below.
+ *  found in arXiv:2004.06503. The various flags are detailed below.
  *
  *  Precession flags:
  *   PhenomXPrecVersion:
@@ -840,6 +993,13 @@ int IMRPhenomXPGenerateFD(
  *     - 222 : MSA Euler angles as implemented in LALSimInspiralFDPrecAngles.
  *     - 223 : MSA Euler angles as implemented in LALSimInspiralFDPrecAngles. Defaults to NNLO version 102 if MSA fails to initialize. [Default].
  *     - 224 : As version 220 but using the \f$\phi_{z,0}\f$ and \f$\zeta_{z,0}\f$ prescription from 223.
+ *     - 310 : Numerical integration of SpinTaylor equations with constant angles in merger-ringdown
+ *     - 311 : Numerical integration of SpinTaylor equations with constant angles in merger-ringdown, without tidal and non-black hole spin-induced quadrupole terms in the SpinTaylor equations
+ *             when used in IMRPhenomXP_NRTidalv2, for comparison
+ *     - 320 : Numerical integration of SpinTaylor equations, analytical continuation in merger-ringdown
+ *     - 321 : Numerical integration of SpinTaylor equations, analytical continuation in merger-ringdown, without tidal and non-black hole spin-induced quadrupole terms in the SpinTaylor equations
+ *             when used in IMRPhenomXP_NRTidalv2, for comparison
+
  *
  *   PhenomXPExpansionOrder:
  *     - -1, 0, 1, 2, 3, 4, 5. Controls the expansion order of the leading-order MSA terms for both \f$\zeta\f$ and \f$\phi_z\f$. [Default is 5].
@@ -850,13 +1010,14 @@ int IMRPhenomXPGenerateFD(
  *     - 2 : Modify final spin using norm of total in-plane spin vector.
  *     - 3 : Modify final spin using precession-averaged couplings from MSA analysis. Only works with MSA Euler angles (versions 220, 221, 222, 223 and 224). If MSA fails to initialize
  *           or called with NNLO angles, default to version 0. [Default]
+ *     - 4: Modify final spin estimating the total in-plane spin from the PN spin-evolution equations.
  *
- *   PhenomXPConvention (App. C and Table II in App. F of arXiv:XXXX.YYYY):
+ *   PhenomXPConvention (App. C and Table IV of arXiv:2004.06503):
  *     - 0 : Conventions defined as following https://dcc.ligo.org/LIGO-T1500602
- *     - 1 : Convention defined following App. C, see Table II of arXiv:XXXX.YYYY for specific details. [Default]
+ *     - 1 : Convention defined following App. C, see Table II of arXiv:2004.06503 for specific details. [Default]
  *     - 5 : Conventions as used in PhenomPv3/HM
- *     - 6 : Conventions defined following App. C, see Table II of arXiv:XXXX.YYYY for specific details.
- *     - 7 : Conventions defined following App. C, see Table II of arXiv:XXXX.YYYY for specific details.
+ *     - 6 : Conventions defined following App. C, see Table II of arXiv:2004.06503 for specific details.
+ *     - 7 : Conventions defined following App. C, see Table II of arXiv:2004.06503 for specific details.
  */
 
 
@@ -897,6 +1058,16 @@ int XLALSimIMRPhenomXPGenerateFD(
 {
   UINT4 status;
   UINT4 debug = PHENOMXPDEBUG;
+
+  /*
+  Set initial values of masses and z-components of spins to pass to IMRPhenomXSetWaveformVariables() so it can swap the
+  matter parameters (and masses and spins) appropriately if m1 < m2, since the masses and spin vectors will also be
+  swapped by XLALIMRPhenomXPCheckMassesAndSpins() below.
+  */
+  const REAL8 m1_SI_init = m1_SI;
+  const REAL8 m2_SI_init = m2_SI;
+  const REAL8 chi1z_init = chi1z;
+  const REAL8 chi2z_init = chi2z;
 
   status = XLALIMRPhenomXPCheckMassesAndSpins(&m1_SI,&m2_SI,&chi1x,&chi1y,&chi1z,&chi2x,&chi2y,&chi2z);
   XLAL_CHECK(XLAL_SUCCESS == status, XLAL_EFUNC, "Error: XLALIMRPhenomXPCheckMassesAndSpins failed.\n");
@@ -959,10 +1130,6 @@ int XLALSimIMRPhenomXPGenerateFD(
       lalParams_aux = XLALDictDuplicate(lalParams);
   }
 
-  /* Spins aligned with the orbital angular momenta */
-  const REAL8 chi1L = chi1z;
-  const REAL8 chi2L = chi2z;
-
   #if PHENOMXPDEBUG == 1
       printf("\n\n **** Initializing waveform struct... **** \n\n");
   #endif
@@ -974,7 +1141,8 @@ int XLALSimIMRPhenomXPGenerateFD(
   /* Initialize IMR PhenomX Waveform struct and check that it initialized correctly */
   IMRPhenomXWaveformStruct *pWF;
   pWF    = XLALMalloc(sizeof(IMRPhenomXWaveformStruct));
-  status = IMRPhenomXSetWaveformVariables(pWF, m1_SI, m2_SI, chi1L, chi2L, deltaF, fRef, phiRef, f_min, f_max, distance, inclination, lalParams_aux, debug);
+  // this function will use the original input to swap the order of tidal parameters, if necessary to enforce m1>m2 
+  status = IMRPhenomXSetWaveformVariables(pWF, m1_SI_init, m2_SI_init, chi1z_init, chi2z_init, deltaF, fRef, phiRef, f_min, f_max, distance, inclination, lalParams_aux, debug);
   XLAL_CHECK(XLAL_SUCCESS == status, XLAL_EFUNC, "Error: IMRPhenomXSetWaveformVariables failed.\n");
 
 
@@ -986,6 +1154,12 @@ int XLALSimIMRPhenomXPGenerateFD(
   freqs->data[0] = pWF->fMin;
   freqs->data[1] = pWF->f_max_prime;
 
+  if(XLALSimInspiralWaveformParamsLookupPhenomXPNRUseTunedAngles(lalParams)){
+    XLAL_CHECK(
+      (fRef >=  pWF->fMin)&&(fRef <= pWF->f_max_prime),
+      XLAL_EFUNC,
+      "Error: f_min = %.2f <= fRef = %.2f < f_max = %.2f required when using tuned angles.\n",pWF->fMin,fRef,pWF->f_max_prime);
+  }
 
   #if PHENOMXPDEBUG == 1
       printf("\n\n **** Initializing precession struct... **** \n\n");
@@ -995,6 +1169,11 @@ int XLALSimIMRPhenomXPGenerateFD(
   /* Initialize IMR PhenomX Precession struct and check that it generated successfully */
   IMRPhenomXPrecessionStruct *pPrec;
   pPrec  = XLALMalloc(sizeof(IMRPhenomXPrecessionStruct));
+  
+  /* If user chose SpinTaylor angles, set bounds for interpolation of angles */
+  int pflag = XLALSimInspiralWaveformParamsLookupPhenomXPrecVersion(lalParams_aux);
+  if(pflag==310||pflag==311||pflag==320||pflag==321)
+  pPrec->M_MIN = 2, pPrec->M_MAX = 2;
 
   status = IMRPhenomXGetAndSetPrecessionVariables(
            pWF,
@@ -1093,6 +1272,17 @@ int XLALSimIMRPhenomXPGenerateFD(
 )
  {
    UINT4 status = 0;
+   
+   const REAL8 m1_SI_init = m1_SI;
+   const REAL8 m2_SI_init = m2_SI;
+   const REAL8 chi1z_init = chi1z;
+   const REAL8 chi2z_init = chi2z;
+   
+   /*
+  Set initial values of masses and z-components of spins to pass to IMRPhenomXSetWaveformVariables() so it can swap the
+  matter parameters (and masses and spins) appropriately if m1 < m2, since the masses and spin vectors will also be
+  swapped by XLALIMRPhenomXPCheckMassesAndSpins() below.
+  */
 
    status = XLALIMRPhenomXPCheckMassesAndSpins(&m1_SI,&m2_SI,&chi1x,&chi1y,&chi1z,&chi2x,&chi2y,&chi2z);
    XLAL_CHECK(XLAL_SUCCESS == status, XLAL_EFUNC, "Error: XLALIMRPhenomXPCheckMassesAndSpins failed.\n");
@@ -1128,15 +1318,18 @@ int XLALSimIMRPhenomXPGenerateFD(
    if(mass_ratio > 1000. && fabs(mass_ratio - 1000) > 1e-12) { XLAL_ERROR(XLAL_EDOM, "ERROR: Model not valid at mass ratios beyond 1000.\n"); } // The 1e-12 is to avoid rounding errors
    if(sqrt(chi1x*chi1x + chi1y*chi1y + chi1z*chi1z) > 0.99 || sqrt(chi2x*chi2x + chi2y*chi2y + chi2z*chi2z) > 0.99) { XLAL_PRINT_WARNING("Warning: Extrapolating to extremal spins, model is not trusted.\n"); }
 
-   REAL8 chi1L, chi2L;
-   chi1L = chi1z;
-   chi2L = chi2z;
-
    /* If fRef is not provided, then set fRef to be the starting GW Frequency */
    const REAL8 fRef = (fRef_In == 0.0) ? freqs->data[0] : fRef_In;
 
    const REAL8 f_min_In  = freqs->data[0];
    const REAL8 f_max_In  = freqs->data[freqs->length - 1];
+
+  if(XLALSimInspiralWaveformParamsLookupPhenomXPNRUseTunedAngles(lalParams)){
+    XLAL_CHECK(
+      (fRef >=  f_min_In)&&(fRef <= f_max_In),
+      XLAL_EFUNC,
+      "Error: f_min = %.2f <= fRef = %.2f < f_max = %.2f required when using tuned angles.\n",f_min_In,fRef,f_max_In);
+  }
 
    /* Use an auxiliar laldict to not overwrite the input argument */
    LALDict *lalParams_aux;
@@ -1159,12 +1352,20 @@ int XLALSimIMRPhenomXPGenerateFD(
    /* Initialize IMRPhenomX waveform struct and perform sanity check. */
    IMRPhenomXWaveformStruct *pWF;
    pWF    = XLALMalloc(sizeof(IMRPhenomXWaveformStruct));
-   status = IMRPhenomXSetWaveformVariables(pWF, m1_SI, m2_SI, chi1L, chi2L, 0.0, fRef, phiRef, f_min_In, f_max_In, distance, inclination, lalParams_aux, 0);
+   status = IMRPhenomXSetWaveformVariables(pWF, m1_SI_init, m2_SI_init, chi1z_init, chi2z_init, 0.0, fRef, phiRef, f_min_In, f_max_In, distance, inclination, lalParams_aux, 0);
    XLAL_CHECK(XLAL_SUCCESS == status, XLAL_EFUNC, "Error: IMRPhenomXSetWaveformVariables failed.\n");
 
    /* Initialize IMR PhenomX Precession struct and check that it generated successfully */
    IMRPhenomXPrecessionStruct *pPrec;
    pPrec  = XLALMalloc(sizeof(IMRPhenomXPrecessionStruct));
+   
+  /* If user chose SpinTaylor angles, set bounds for interpolation of angles */
+  int pflag = XLALSimInspiralWaveformParamsLookupPhenomXPrecVersion(lalParams_aux);
+  if(pflag==310||pflag==311||pflag==320||pflag==321)
+  {
+  pPrec->M_MIN = 2, pPrec->M_MAX = 2;
+  }
+
 
    status = IMRPhenomXGetAndSetPrecessionVariables(
               pWF,
@@ -1295,6 +1496,81 @@ int XLALSimIMRPhenomXPGenerateFD(
               );
      XLAL_CHECK(XLAL_SUCCESS == status, XLAL_EFUNC, "Error: IMRPhenomXSetPrecessionVariables failed.\n");
 
+    if(pPrec->IMRPhenomXPNRUseTunedAngles)
+    {
+      /* Generate PNR structs */
+      IMRPhenomXWaveformStruct *pWF_SingleSpin = NULL;
+      IMRPhenomXPrecessionStruct *pPrec_SingleSpin = NULL;
+      IMRPhenomX_PNR_alpha_parameters *alphaParams = NULL;
+      IMRPhenomX_PNR_beta_parameters *betaParams = NULL;
+
+      status = IMRPhenomX_PNR_PopulateStructs(
+        &pWF_SingleSpin,
+        &pPrec_SingleSpin,
+        &alphaParams,
+        &betaParams,
+        pWF,
+        pPrec,
+        lalParams);
+      XLAL_CHECK(
+        XLAL_SUCCESS == status,
+        XLAL_EFUNC,
+        "Error: IMRPhenomX_PNR_PopulateStructs failed!\n");
+
+      REAL8 betaPNR_ref = 0.0;
+
+      REAL8 Mf_ref = pWF->MfRef;
+      /* generate PNR angles */
+      REAL8 q = pWF->q;
+      REAL8 chi = pPrec->chi_singleSpin;
+
+      UINT4 attach_MR_beta = IMRPhenomX_PNR_AttachMRBeta(betaParams);
+      /* inside calibration region */
+      if ((q <= pPrec->PNR_q_window_lower) && (chi <= pPrec->PNR_chi_window_lower))
+      {
+        /* First check to see if we attach the MR tuning to beta */
+        if (attach_MR_beta) /* yes we do! */
+        {
+          betaPNR_ref = IMRPhenomX_PNR_GeneratePNRBetaAtMf(Mf_ref, betaParams, pWF, pPrec, pWF_SingleSpin, pPrec_SingleSpin);
+        }
+        else /* don't attach MR tuning to beta */
+        {
+          betaPNR_ref = IMRPhenomX_PNR_GeneratePNRBetaNoMR(Mf_ref, pWF, pPrec); 
+        }
+      }
+      /* inside transition region */
+      else if ((q <= pPrec->PNR_q_window_upper) && (chi <= pPrec->PNR_chi_window_upper))
+      {
+        /* First check to see if we attach the MR tuning to beta */
+        if (attach_MR_beta) /* yes we do! */
+        {
+          betaPNR_ref = IMRPhenomX_PNR_GenerateMergedPNRBetaAtMf(Mf_ref, betaParams, pWF, pPrec, pWF_SingleSpin, pPrec_SingleSpin); 
+        }
+        else /* don't attach MR tuning to beta */
+        {
+          betaPNR_ref = IMRPhenomX_PNR_GeneratePNRBetaNoMR(Mf_ref, pWF, pPrec);  
+        }
+      }
+      /* fully in outside calibration region */
+      else
+      {
+        betaPNR_ref = IMRPhenomX_PNR_GeneratePNRBetaNoMR(Mf_ref, pWF, pPrec);
+      }
+      
+      status = IMRPhenomX_PNR_RemapThetaJSF(betaPNR_ref, pWF, pPrec, lalParams);
+      XLAL_CHECK(
+        XLAL_SUCCESS == status,
+        XLAL_EFUNC,
+        "Error: IMRPhenomX_PNR_RemapThetaJSF failed in IMRPhenomX_PNR_GeneratePNRAngles.");
+
+      /* clean this up */
+      IMRPhenomX_PNR_FreeStructs(
+        &pWF_SingleSpin,
+        &pPrec_SingleSpin,
+        &alphaParams,
+        &betaParams);
+    }
+
      /* Aligned spins */
      *chi1L = chi1z; /* Dimensionless aligned spin on BH 1 */
      *chi2L = chi2z; /* Dimensionless aligned spin on BH 2 */
@@ -1306,6 +1582,10 @@ int XLALSimIMRPhenomXPGenerateFD(
      *zeta_polarization = pPrec->zeta_polarization;
 
      LALFree(pWF);
+     if (pWF->APPLY_PNR_DEVIATIONS && pWF->IMRPhenomXPNRForceXHMAlignment) {
+      // Cleaning up
+      LALFree(pPrec->pWF22AS);
+     }
      LALFree(pPrec);
      XLALDestroyDict(lalParams_aux);
 
@@ -1340,7 +1620,7 @@ int XLALSimIMRPhenomXPGenerateFD(
   LALDict *lalParams                 /**< LAL Dictionary struct */
 )
 {
-
+    
    UINT4 status = 0;
 
    status = XLALIMRPhenomXPCheckMassesAndSpins(&m1_SI,&m2_SI,&chi1x,&chi1y,&chi1z,&chi2x,&chi2y,&chi2z);
@@ -1357,6 +1637,9 @@ int XLALSimIMRPhenomXPGenerateFD(
 
    /* If fRef is not provided, then set fRef to be the starting GW Frequency */
    const REAL8 fRef = (fRef_In == 0.0) ? freqs->data[0] : fRef_In;
+
+  //  const REAL8 f_min_In  = freqs->data[0];
+  //  const REAL8 f_max_In  = freqs->data[freqs->length - 1];
 
    /* Use an auxiliar laldict to not overwrite the input argument */
    LALDict *lalParams_aux;
@@ -1407,11 +1690,11 @@ int XLALSimIMRPhenomXPGenerateFD(
 
    REAL8 v        = 0.0;
    vector vangles = {0.,0.,0.};
-
+   
    *alpha_of_f = XLALCreateREAL8Sequence(freqs->length);
    *gamma_of_f = XLALCreateREAL8Sequence(freqs->length);
    *cosbeta_of_f = XLALCreateREAL8Sequence(freqs->length);
-
+   
    for(UINT4 i = 0; i < freqs->length; i++)
    {
      // Input list of *gravitational-wave* frequencies not *orbital* frequencies*
@@ -1487,11 +1770,14 @@ int XLALSimIMRPhenomXPGenerateFD(
    /* If fRef is not provided, then set fRef to be the starting GW Frequency */
    const REAL8 fRef = (fRef_In == 0.0) ? freqs->data[0] : fRef_In;
 
-   /* Use an auxiliar laldict to not overwrite the input argument */
-   LALDict *lalParams_aux;
-   /* setup mode array */
-   if (lalParams == NULL)
-   {
+  //  const REAL8 f_min_In  = freqs->data[0];
+  //  const REAL8 f_max_In  = freqs->data[freqs->length - 1];
+
+    /* Use an auxiliar laldict to not overwrite the input argument */
+    LALDict *lalParams_aux;
+    /* setup mode array */
+    if (lalParams == NULL)
+    {
         lalParams_aux = XLALCreateDict();
    }
    else
@@ -1508,12 +1794,12 @@ int XLALSimIMRPhenomXPGenerateFD(
    /* Initialize IMR PhenomX Precession struct and check that it generated successfully */
    IMRPhenomXPrecessionStruct *pPrec;
    pPrec  = XLALMalloc(sizeof(IMRPhenomXPrecessionStruct));
-
+   
    /* The precessing prescription needs to be NNLO */
    if (XLALSimInspiralWaveformParamsLookupPhenomXPrecVersion(lalParams_aux) > 200 ){
        XLALSimInspiralWaveformParamsInsertPhenomXPrecVersion(lalParams_aux, 102);
    }
-
+   
 
    status = IMRPhenomXGetAndSetPrecessionVariables(
               pWF,
@@ -1539,7 +1825,7 @@ int XLALSimIMRPhenomXPGenerateFD(
 
    /* PN Orbital angular momenta */
    REAL8 L = 0.0;
-
+   
    *alpha_of_f = XLALCreateREAL8Sequence(freqs->length);
    *gamma_of_f = XLALCreateREAL8Sequence(freqs->length);
    *cosbeta_of_f = XLALCreateREAL8Sequence(freqs->length);
@@ -1597,6 +1883,10 @@ int IMRPhenomXPGenerateFD(
     printf("\n **** Now in IMRPhenomXPGenerateFD... **** \n");
   #endif
 
+  /* Set tidal version */
+  NRTidal_version_type NRTidal_version ;
+  NRTidal_version=IMRPhenomX_SetTidalVersion(lalParams);
+
   /* Set LIGOTimeGPS */
   LIGOTimeGPS ligotimegps_zero = LIGOTIMEGPSZERO; // = {0,0}
 
@@ -1616,6 +1906,20 @@ int IMRPhenomXPGenerateFD(
 
   /* Initialize frequency sequence */
   REAL8Sequence *freqs = NULL;
+
+  /* Initialize tidal corrections (following tidal code modified from LALSimIMRPhenomP.c) */
+  REAL8Sequence *phi_tidal = NULL;
+  REAL8Sequence *amp_tidal = NULL;
+  REAL8Sequence *planck_taper = NULL;
+
+  /* Set matter parameters (set to zero in pWF if NRTidal additions are not turned on) */
+  REAL8 lambda1 = pWF->lambda1;
+  REAL8 lambda2 = pWF->lambda2;
+    
+  /* New variables needed for the NRTidalv2 model */
+  REAL8 X_A = pWF->m1; // Already scaled by Mtot
+  REAL8 X_B = pWF->m2; // Ibid.
+  REAL8 pfaN = 3./(128.*X_A*X_B);
 
   /* If deltaF is non-zero then we need to generate a uniformly sampled frequency grid of spacing deltaF. Start at f = 0. */
   if(pWF->deltaF > 0)
@@ -1696,7 +2000,7 @@ int IMRPhenomXPGenerateFD(
   XLALUnitMultiply(&((*hctilde)->sampleUnits), &((*hctilde)->sampleUnits), &lalSecondUnit);
 
   /* Check if LAL dictionary exists. If not, create a LAL dictionary. */
-  INT4 lalParams_In = 0;
+  UNUSED INT4 lalParams_In = 0;
   if(lalParams == NULL)
   {
     lalParams_In = 1;
@@ -1706,6 +2010,18 @@ int IMRPhenomXPGenerateFD(
   #if PHENOMXPDEBUG == 1
     printf("\n\n **** Initializing amplitude struct... **** \n\n");
   #endif
+
+    // numerical angles;
+    REAL8Sequence *alpha = NULL;
+    REAL8Sequence *gamma = NULL;
+    REAL8Sequence *cosbeta = NULL;
+    
+    if(pPrec->precessing_tag==3){
+        
+        status = IMRPhenomXPSpinTaylorAnglesIMR(&alpha,&cosbeta,&gamma,freqs,pWF,pPrec,lalParams);
+        XLAL_CHECK(status == XLAL_SUCCESS, XLAL_EFUNC, "IMRPhenomXPSpinTaylorAnglesIMR failed.");
+        
+    }
 
 
   /* Allocate and initialize the PhenomX 22 amplitude coefficients struct */
@@ -1724,7 +2040,8 @@ int IMRPhenomXPGenerateFD(
   pPhase22 = XLALMalloc(sizeof(IMRPhenomXPhaseCoefficients));
   status   = IMRPhenomXGetPhaseCoefficients(pWF,pPhase22);
   XLAL_CHECK(XLAL_SUCCESS == status, XLAL_EFUNC, "Error: IMRPhenomXGetPhaseCoefficients failed.\n");
-
+    if(NRTidal_version!=NoNRT_V) IMRPhenomXGetTidalPhaseCoefficients(pWF,pPhase22,NRTidal_version);
+    
   #if PHENOMXPDEBUG == 1
     printf("\n\n **** Phase struct initialized. **** \n\n");
   #endif
@@ -1749,12 +2066,34 @@ int IMRPhenomXPGenerateFD(
 
   /* Apply time shift, see IMRPhenomX_TimeShift_22 for details of current implementation */
   double linb = IMRPhenomX_TimeShift_22(pPhase22, pWF);
+   // extra contribution to phi(fRef) due to tidal corrections
+  double phiTfRef = 0.;
+  
+  // correct for time and phase shifts due to tidal phase
+  REAL8 f_final=freqs->data[freqs->length-1];
+    
+  if(NRTidal_version!=NoNRT_V){
+      REAL8 f_merger = XLALSimNRTunedTidesMergerFrequency(pWF->Mtot, pWF->kappa2T, pWF->q);
+      if(f_merger<f_final)
+          f_final = f_merger;
+      
+      IMRPhenomX_UsefulPowers powers_of_ffinal;
+      REAL8 Mf_final = f_final*pWF->M_sec;
+      status = IMRPhenomX_Initialize_Powers(&powers_of_ffinal,Mf_final);
+      XLAL_CHECK(XLAL_SUCCESS == status, status, "IMRPhenomX_Initialize_Powers failed for f_final.\n");
+      REAL8 dphi_fmerger=1/pWF->eta*IMRPhenomX_dPhase_22(Mf_final, &powers_of_ffinal, pPhase22, pWF)+linb-IMRPhenomX_TidalPhaseDerivative(&powers_of_ffinal, pWF, pPhase22, NRTidal_version);
+      REAL8 tshift = -dphi_fmerger;
+      linb+=tshift;
+      // tidal phase will be subtracted from the BBH phase
+      phiTfRef = -IMRPhenomX_TidalPhase(&powers_of_MfRef, pWF, pPhase22, NRTidal_version);
+  }
+    
 
   /* Inverse of the symmetric mass ratio */
   REAL8 inveta    = (1.0 / pWF->eta);
 
   /* Construct reference phase, see discussion in Appendix A of arXiv:2001.11412 */
-  pWF->phifRef    = -(inveta * IMRPhenomX_Phase_22(pWF->MfRef, &powers_of_MfRef, pPhase22, pWF) + linb*pWF->MfRef + lina) + 2.0*pWF->phi0 + LAL_PI_4;
+  pWF->phifRef    = -(inveta * IMRPhenomX_Phase_22(pWF->MfRef, &powers_of_MfRef, pPhase22, pWF) + linb*pWF->MfRef + lina+phiTfRef) + 2.0*pWF->phi0 + LAL_PI_4;
 
   /*
       Here we declare explicit REAL8 variables for main loop in order to avoid numerous
@@ -1770,6 +2109,58 @@ int IMRPhenomXPGenerateFD(
   REAL8 fAmpIN            = pAmp22->fAmpMatchIN;
   REAL8 fAmpIM            = pAmp22->fAmpRDMin;
 
+ /* add in PNR-specific code */
+
+  int PNRUseTunedAngles     = pPrec->IMRPhenomXPNRUseTunedAngles;
+
+  REAL8Sequence* alphaPNR = NULL;
+  REAL8Sequence* betaPNR = NULL;
+  REAL8Sequence* gammaPNR = NULL;
+
+  if(PNRUseTunedAngles) /* Check for PNR angles */
+  {
+    alphaPNR = XLALCreateREAL8Sequence(freqs->length);
+    if (!alphaPNR)
+    {
+      XLAL_ERROR(XLAL_EFUNC, "alphaPNR array allocation failed in LALSimIMRPhenomX.c");
+    }
+    betaPNR = XLALCreateREAL8Sequence(freqs->length);
+    if (!betaPNR)
+    {
+      XLAL_ERROR(XLAL_EFUNC, "betaPNR array allocation failed in LALSimIMRPhenomX.c");
+    }
+    gammaPNR = XLALCreateREAL8Sequence(freqs->length);
+    if (!gammaPNR)
+    {
+      XLAL_ERROR(XLAL_EFUNC, "gammaPNR array allocation failed in LALSimIMRPhenomX.c");
+    }
+
+    status = IMRPhenomX_PNR_GeneratePNRAngles(
+      alphaPNR, betaPNR, gammaPNR,
+      freqs, pWF, pPrec,
+      lalParams);
+    XLAL_CHECK(XLAL_SUCCESS == status, XLAL_EFUNC, "Error: IMRPhenomX_PNR_GeneratePNRAngles failed.\n");
+
+    #if DEBUG == 1
+      // Save angles into a file
+      FILE *fileangle2;
+      char fileSpec2[40];
+      sprintf(fileSpec2, "angles_PNR.dat");
+
+      printf("\nOutput angle file: %s\r\n", fileSpec2);
+      fileangle2 = fopen(fileSpec2,"w");
+
+      fprintf(fileangle2,"# q = %.16e m1 = %.16e m2 = %.16e chi1 = %.16e chi2 = %.16e  Mtot = %.16e distance = %.16e\n", pWF->q, pWF->m1, pWF->m2, pWF->chi1L, pWF->chi2L,  pWF->Mtot, pWF->distance/LAL_PC_SI/1e6);
+      fprintf(fileangle2,"#fHz   alpha   beta    gamma\n");
+
+      for (UINT4 idx = 0; idx < freqs->length; idx++)
+      {
+        fprintf(fileangle2, "%.16e  %.16e  %.16e  %.16e\n", freqs->data[idx], alphaPNR->data[idx], betaPNR->data[idx], gammaPNR->data[idx]);
+      }
+      fclose(fileangle2);
+    #endif
+  }
+
   #if PHENOMXPDEBUG == 1
     printf("\n\n **** Phase struct initialized. **** \n\n");
     printf("C1IM     = %.4f\n",C1IM);
@@ -1782,8 +2173,11 @@ int IMRPhenomXPGenerateFD(
   #endif
 
   /* amplitude definition as in XAS */
+
   REAL8 Amp0          = pWF->amp0 * pWF->ampNorm;
 
+
+  
   /* initial_status used to track  */
   UINT4 initial_status = XLAL_SUCCESS;
 
@@ -1814,6 +2208,52 @@ int IMRPhenomXPGenerateFD(
   fclose(fileangle);
   #endif
 
+  if (NRTidal_version == NRTidal_V || NRTidal_version == NRTidalv2_V) {
+    int ret = 0;
+    UINT4 L_fCut = freqs->length;
+    phi_tidal = XLALCreateREAL8Sequence(L_fCut);
+    amp_tidal = XLALCreateREAL8Sequence(L_fCut);
+    planck_taper = XLALCreateREAL8Sequence(L_fCut);
+    /* Get FD tidal phase correction and amplitude factor */
+    ret = XLALSimNRTunedTidesFDTidalPhaseFrequencySeries(phi_tidal, amp_tidal, planck_taper, freqs, pWF->m1_SI, pWF->m2_SI, lambda1, lambda2, NRTidal_version);
+    XLAL_CHECK(XLAL_SUCCESS == ret, ret, "XLALSimNRTunedTidesFDTidalPhaseFrequencySeries Failed.");
+  }
+
+
+  int AntisymmetricWaveform = pPrec->IMRPhenomXAntisymmetricWaveform;
+
+  /** declare all variables used in anti-symmetric waveform calculation*/
+  REAL8Sequence *kappa = NULL;
+  REAL8 A0 = 0.0;
+  REAL8 phi_A0 = 0.0;
+  REAL8 phi_B0 = 0.0;
+
+  REAL8 phi_antiSym = 0.0;
+  REAL8 amp_antiSym = 0.0;
+  double MfT = 0.85 * pWF->fRING; /* note that fRING is already in dimensionaless units  */
+
+  if(AntisymmetricWaveform) /* Check for antisymmetric waveform flag */
+  {
+    if (!PNRUseTunedAngles)
+    {
+      XLAL_ERROR(XLAL_EFUNC, "Error: Antisymmetric waveform generation not supported without PNR angles, please turn on PNR angles to produce waveform with asymmetries in the (2,2) and (2,-2) modes\n");
+    }
+    else
+    {
+      kappa = XLALCreateREAL8Sequence(freqs->length);
+      if (!kappa)
+      {
+        XLAL_ERROR(XLAL_EFUNC, "antisymmetric waveform amplitude ratio array allocation failed in LALSimIMRPhenomX.c");
+      }
+      status = IMRPhenomX_PNR_GenerateAntisymmetricAmpRatio(kappa, freqs, pWF, pPrec);
+      XLAL_CHECK(XLAL_SUCCESS == status, XLAL_EFUNC, "Error: IMRPhenomX_PNRAntisymmetricAmpRatio failed.\n");
+
+      status = IMRPhenomX_PNR_GenerateAntisymmetricPhaseCoefficients(
+      &A0, &phi_A0, &phi_B0, MfT, lina, linb, inveta, pWF,pPrec,pPhase22);
+
+    }
+  }
+
   /* Now loop over frequencies to generate waveform:  h(f) = A(f) * Exp[I phi(f)] */
   #pragma omp parallel for
   for (UINT4 idx = 0; idx < freqs->length; idx++)
@@ -1822,9 +2262,13 @@ int IMRPhenomXPGenerateFD(
     UINT4 jdx    = idx  + offset;
 
     COMPLEX16 hcoprec     = 0.0;  /* Co-precessing waveform */
+    COMPLEX16 hcoprec_antiSym  = 0.0;  /* Co-precessing anti-symmetric waveform */
     COMPLEX16 hplus       = 0.0;  /* h_+ */
-    COMPLEX16 hcross      = 0.0;  /* h_x */
+    COMPLEX16 hcross      = 0.0;  /* h_x */ 
 
+    /* We do not want to generate the waveform at frequencies > f_max (default = 0.3 Mf) */
+    if(Mf <= (pWF->f_max_prime * pWF->M_sec))
+    {
     /* Initialize a struct containing useful powers of Mf */
     IMRPhenomX_UsefulPowers powers_of_Mf;
     initial_status     = IMRPhenomX_Initialize_Powers(&powers_of_Mf,Mf);
@@ -1875,17 +2319,126 @@ int IMRPhenomXPGenerateFD(
         amp = IMRPhenomX_Intermediate_Amp_22_Ansatz(Mf, &powers_of_Mf, pWF, pAmp22);
       }
 
-      /* Waveform in co-precessing frame: h(f) = A(f) * Exp[I phi(f)] */
-      hcoprec = Amp0 * powers_of_Mf.m_seven_sixths * amp * cexp(I * phi);
+      /* Add NRTidal phase, if selected, code adapted from LALSimIMRPhenomP.c */
 
-      /* Transform modes from co-precessing frame to inertial frame */
-      IMRPhenomXPTwistUp22(Mf,hcoprec,pWF,pPrec,&hplus,&hcross);
+      if (NRTidal_version == NRTidal_V || NRTidal_version == NRTidalv2_V) {
+          
+          REAL8 phaseTidal = phi_tidal->data[idx];
+          double ampTidal = amp_tidal->data[idx];
+          double window = planck_taper->data[idx];
+
+          /* Add spin-induced quadrupole moment terms to tidal phasing */
+
+          /* 2PN terms */
+          phaseTidal += pfaN * pPhase22->c2PN_tidal* powers_of_lalpi.m_one_third * powers_of_Mf.m_one_third;
+          /* 3PN terms */
+          phaseTidal += pfaN * pPhase22->c3PN_tidal* powers_of_lalpi.one_third* powers_of_Mf.one_third;
+
+          /* 3.5PN terms are only in NRTidalv2 */
+          if (NRTidal_version == NRTidalv2_V) {
+              phaseTidal += pfaN * pPhase22->c3p5PN_tidal * powers_of_lalpi.two_thirds * powers_of_Mf.two_thirds;
+          }
+          
+          /* Waveform in co-precessing frame with NRTidal terms included: h(f) = [A(f) + A_tidal(f)] * Exp{I [phi(f) - phi_tidal(f)]} * window(f) */
+          hcoprec = pWF->amp0 * (pWF->ampNorm * powers_of_Mf.m_seven_sixths * amp + 2*sqrt(1/5.)*powers_of_lalpi.sqrt * ampTidal) * cexp(I * (phi - phaseTidal)) * window;
+        }
+      
+      else if (NRTidal_version == NoNRT_V) {
+          /* Waveform in co-precessing frame: h(f) = A(f) * Exp[I phi(f)] */
+        hcoprec = Amp0 * powers_of_Mf.m_seven_sixths * amp * cexp(I * phi);
+      }
+      
+      else {
+            XLAL_PRINT_INFO("Warning: Only NRTidal, NRTidalv2, and NoNRT NRTidal_version values allowed and NRTidal is not implemented completely in IMRPhenomX*.");
+            }
+
+        /* Transform modes from co-precessing frame to inertial frame */
+        /* Only do this if the coprecessing model is not desired */
+        if(  pWF->IMRPhenomXReturnCoPrec  )
+        {
+          //
+          hplus  =  0.5 * (hcoprec);
+          hcross = -0.5 * I * (hcoprec);
+
+        }
+        else
+        {
+
+          if(PNRUseTunedAngles) /* Look for PNR flag */
+          {
+            pPrec->alphaPNR = alphaPNR->data[idx];
+            pPrec->betaPNR = betaPNR->data[idx];
+            pPrec->gammaPNR = gammaPNR->data[idx];
+          }
+          
+  
+        if(pPrec->precessing_tag==3)
+           IMRPhenomXPTwistUp22_NumericalAngles(hcoprec, alpha->data[idx], cosbeta->data[idx], gamma->data[idx], pPrec, &hplus, &hcross);
+       else
+           IMRPhenomXPTwistUp22(Mf,hcoprec,pWF,pPrec,&hplus,&hcross);
+
+          /********************************/
+          /*** anti-symmetric waveform ***/
+          /*******************************/
+
+          if(AntisymmetricWaveform && PNRUseTunedAngles)
+          {
+            /* phase of anti-symmetric waveform*/
+            if(Mf < MfT)
+            {
+              phi_antiSym = phi/2 + alphaPNR->data[idx] + A0 *Mf + phi_A0;
+            }
+            else
+            {
+              phi_antiSym = phi + phi_B0;
+            }
+
+            COMPLEX16 hplus_antiSym       = 0.0; 
+            COMPLEX16 hcross_antiSym      = 0.0; 
+            amp_antiSym = cabs(hcoprec)*kappa->data[idx];
+            hcoprec_antiSym = amp_antiSym* cexp(I * phi_antiSym);
+            pPrec->PolarizationSymmetry = -1;
+            IMRPhenomXPTwistUp22(Mf,hcoprec_antiSym,pWF,pPrec,&hplus_antiSym, &hcross_antiSym);
+            pPrec->PolarizationSymmetry = 1;
+            hplus += hplus_antiSym;
+            hcross += hcross_antiSym;
+          }
+        }
+
 
       /* Populate h_+ and h_x */
       ((*hptilde)->data->data)[jdx] = hplus;
       ((*hctilde)->data->data)[jdx] = hcross;
     }
   }
+    else
+    {
+      /* Mf > Mf_max, so return 0 */
+      ((*hptilde)->data->data)[jdx] = 0.0 + I*0.0;
+      ((*hctilde)->data->data)[jdx] = 0.0 + I*0.0;
+    }
+  }
+
+XLALDestroyREAL8Sequence(alpha);
+XLALDestroyREAL8Sequence(cosbeta);
+XLALDestroyREAL8Sequence(gamma);
+        
+            
+    if(pPrec->precessing_tag==3)
+    {
+        LALFree(pPrec->alpha_params);
+        LALFree(pPrec->beta_params);
+        
+        gsl_spline_free(pPrec->alpha_spline);
+        gsl_spline_free(pPrec->cosbeta_spline);
+        gsl_spline_free(pPrec->gamma_spline);
+      
+        gsl_interp_accel_free(pPrec->alpha_acc);
+        gsl_interp_accel_free(pPrec->gamma_acc);
+        gsl_interp_accel_free(pPrec->cosbeta_acc);
+        
+    }
+        
 
   /*
       Loop over h+ and hx and rotate waveform by 2 \zeta.
@@ -1917,6 +2470,21 @@ int IMRPhenomXPGenerateFD(
   LALFree(pAmp22);
   LALFree(pPhase22);
   XLALDestroyREAL8Sequence(freqs);
+  
+  // Free allocated memory for tidal extension
+  XLALDestroyREAL8Sequence(phi_tidal);
+  XLALDestroyREAL8Sequence(amp_tidal);
+  XLALDestroyREAL8Sequence(planck_taper);
+
+  if(PNRUseTunedAngles){
+    XLALDestroyREAL8Sequence(alphaPNR);
+    XLALDestroyREAL8Sequence(betaPNR);
+    XLALDestroyREAL8Sequence(gammaPNR);
+  }
+
+  if(AntisymmetricWaveform){
+    XLALDestroyREAL8Sequence(kappa);
+  }
 
   if(lalParams_In == 1)
   {
@@ -1924,4 +2492,566 @@ int IMRPhenomXPGenerateFD(
   }
 
   return status;
+}
+
+
+/* ~~~~~~~~~~ Effective Ringdown Frequency ~~~~~~~~~~ */
+REAL8 XLALSimPhenomPNRfRingEff(  REAL8 m1_SI, REAL8 m2_SI, REAL8 chi1x, REAL8 chi1y, REAL8 chi1z, REAL8 chi2x, REAL8 chi2y, REAL8 chi2z, LALDict *lalParams ) {
+  UINT4 status;
+
+  status = XLALIMRPhenomXPCheckMassesAndSpins(&m1_SI,&m2_SI,&chi1x,&chi1y,&chi1z,&chi2x,&chi2y,&chi2z);
+  XLAL_CHECK(XLAL_SUCCESS == status, XLAL_EFUNC, "Error: XLALIMRPhenomXPCheckMassesAndSpins failed.\n");
+
+  /* Perform initial sanity checks */
+  if(m1_SI    <= 0.0) { XLAL_ERROR(XLAL_EDOM, "m1 must be positive.\n");                                              }
+  if(m2_SI    <= 0.0) { XLAL_ERROR(XLAL_EDOM, "m2 must be positive.\n");     }
+
+  /* Use an auxiliar laldict to not overwrite the input argument */
+  LALDict *lalParams_aux;
+  /* setup mode array */
+  if (lalParams == NULL)
+  {
+      lalParams_aux = XLALCreateDict();
+  }
+  else{
+      lalParams_aux = XLALDictDuplicate(lalParams);
+  }
+
+  /* Spins aligned with the orbital angular momenta */
+  const REAL8 chi1L = chi1z;
+  const REAL8 chi2L = chi2z;
+
+  const REAL8 deltaF = 0.0001;
+  const REAL8 f_min = 20;
+  const REAL8 f_max = 1024;
+  const REAL8 distance = 1.0;
+  const REAL8 inclination = 0.0;
+  const REAL8 fRef = f_min;
+  const REAL8 phiRef = 0.0;
+
+  /* Initialize useful powers of LAL_PI - this is used in the code called by IMRPhenomXPGenerateFD */
+  status = IMRPhenomX_Initialize_Powers(&powers_of_lalpi, LAL_PI);
+  XLAL_CHECK(XLAL_SUCCESS == status, status, "Failed to initialize useful powers of LAL_PI.\n");
+
+  /* Initialize IMR PhenomX Waveform struct and check that it initialized correctly */
+  IMRPhenomXWaveformStruct *pWF;
+  pWF    = XLALMalloc(sizeof(IMRPhenomXWaveformStruct));
+  status = IMRPhenomXSetWaveformVariables(pWF, m1_SI, m2_SI, chi1L, chi2L, deltaF, fRef, phiRef, f_min, f_max, distance, inclination, lalParams_aux, 0);
+  // status = IMRPhenomXSetWaveformVariables(pWF, m1_SI, m2_SI, chi1L, chi2L, deltaF, 20.0, 20.0, 10.0, 1024.0, 3.085677581491367e24, 0, lalParams_aux, 0);
+  XLAL_CHECK(XLAL_SUCCESS == status, XLAL_EFUNC, "Error: IMRPhenomXSetWaveformVariables failed.\n");
+
+  /* Initialize IMR PhenomX Precession struct and check that it generated successfully */
+  IMRPhenomXPrecessionStruct *pPrec;
+  pPrec  = XLALMalloc(sizeof(IMRPhenomXPrecessionStruct));
+
+  status = IMRPhenomXGetAndSetPrecessionVariables(
+           pWF,
+           pPrec,
+           m1_SI,
+           m2_SI,
+           chi1x,
+           chi1y,
+           chi1z,
+           chi2x,
+           chi2y,
+           chi2z,
+           lalParams_aux,
+           PHENOMXPDEBUG
+         );
+  XLAL_CHECK(XLAL_SUCCESS == status, XLAL_EFUNC, "Error: IMRPhenomXSetPrecessionVariables failed.\n");
+
+    //
+  REAL8 fRING22_prec = pWF->fRING22_prec - 2 * pWF->fRINGEffShiftDividedByEmm;
+  // return pWF->fRING22_prec - 2 * pWF->fRINGEffShiftDividedByEmm;
+
+  /* free up memory allocation */
+  LALFree(pPrec);
+  LALFree(pWF);
+  XLALDestroyDict(lalParams_aux);
+
+  return fRING22_prec;
+
+}
+
+
+/* ~~~~~~~~~~ fRINGEffShiftDividedByEmm ~~~~~~~~~~ */
+REAL8 XLALSimPhenomPNRfRINGEffShiftDividedByEmm(  REAL8 m1_SI, REAL8 m2_SI, REAL8 chi1x, REAL8 chi1y, REAL8 chi1z, REAL8 chi2x, REAL8 chi2y, REAL8 chi2z, LALDict *lalParams ) {
+  UINT4 status;
+
+  status = XLALIMRPhenomXPCheckMassesAndSpins(&m1_SI,&m2_SI,&chi1x,&chi1y,&chi1z,&chi2x,&chi2y,&chi2z);
+  XLAL_CHECK(XLAL_SUCCESS == status, XLAL_EFUNC, "Error: XLALIMRPhenomXPCheckMassesAndSpins failed.\n");
+
+  /* Perform initial sanity checks */
+  if(m1_SI    <= 0.0) { XLAL_ERROR(XLAL_EDOM, "m1 must be positive.\n");                                              }
+  if(m2_SI    <= 0.0) { XLAL_ERROR(XLAL_EDOM, "m2 must be positive.\n");     }
+
+  /* Use an auxiliar laldict to not overwrite the input argument */
+  LALDict *lalParams_aux;
+  /* setup mode array */
+  if (lalParams == NULL)
+  {
+      lalParams_aux = XLALCreateDict();
+  }
+  else{
+      lalParams_aux = XLALDictDuplicate(lalParams);
+  }
+
+/* Spins aligned with the orbital angular momenta */
+  const REAL8 chi1L = chi1z;
+  const REAL8 chi2L = chi2z;
+
+  const REAL8 deltaF = 0.0001;
+  const REAL8 f_min = 20;
+  const REAL8 f_max = 1024;
+  const REAL8 distance = 1.0;
+  const REAL8 inclination = 0.0;
+  const REAL8 fRef = f_min;
+  const REAL8 phiRef = 0.0;
+
+  /* Initialize useful powers of LAL_PI - this is used in the code called by IMRPhenomXPGenerateFD */
+  status = IMRPhenomX_Initialize_Powers(&powers_of_lalpi, LAL_PI);
+  XLAL_CHECK(XLAL_SUCCESS == status, status, "Failed to initialize useful powers of LAL_PI.\n");
+
+  /* Initialize IMR PhenomX Waveform struct and check that it initialized correctly */
+  IMRPhenomXWaveformStruct *pWF;
+  pWF    = XLALMalloc(sizeof(IMRPhenomXWaveformStruct));
+  status = IMRPhenomXSetWaveformVariables(pWF, m1_SI, m2_SI, chi1L, chi2L, deltaF, fRef, phiRef, f_min, f_max, distance, inclination, lalParams_aux, 0);
+  // status = IMRPhenomXSetWaveformVariables(pWF, m1_SI, m2_SI, chi1L, chi2L, deltaF, 20.0, 20.0, 10.0, 1024.0, 3.085677581491367e24, 0, lalParams_aux, 0);
+  XLAL_CHECK(XLAL_SUCCESS == status, XLAL_EFUNC, "Error: IMRPhenomXSetWaveformVariables failed.\n");
+
+  /* Initialize IMR PhenomX Precession struct and check that it generated successfully */
+  IMRPhenomXPrecessionStruct *pPrec;
+  pPrec  = XLALMalloc(sizeof(IMRPhenomXPrecessionStruct));
+
+  status = IMRPhenomXGetAndSetPrecessionVariables(
+           pWF,
+           pPrec,
+           m1_SI,
+           m2_SI,
+           chi1x,
+           chi1y,
+           chi1z,
+           chi2x,
+           chi2y,
+           chi2z,
+           lalParams_aux,
+           PHENOMXPDEBUG
+         );
+  XLAL_CHECK(XLAL_SUCCESS == status, XLAL_EFUNC, "Error: IMRPhenomXSetPrecessionVariables failed.\n");
+
+  REAL8 fRINGEffShiftDividedByEmm = pWF->fRINGEffShiftDividedByEmm;
+
+  /* free up memory allocation */
+  LALFree(pPrec);
+  LALFree(pWF);
+  XLALDestroyDict(lalParams_aux);
+
+  //
+  return fRINGEffShiftDividedByEmm;
+
+}
+
+
+
+
+/* ~~~~~~~~~~ Final Beta ~~~~~~~~~~ */
+REAL8 XLALSimPhenomPNRbetaRD(  REAL8 m1_SI, REAL8 m2_SI, REAL8 chi1x, REAL8 chi1y, REAL8 chi1z, REAL8 chi2x, REAL8 chi2y, REAL8 chi2z, LALDict *lalParams ) {
+
+  UINT4 status;
+  status = XLALIMRPhenomXPCheckMassesAndSpins(&m1_SI,&m2_SI,&chi1x,&chi1y,&chi1z,&chi2x,&chi2y,&chi2z);
+  XLAL_CHECK(XLAL_SUCCESS == status, XLAL_EFUNC, "Error: XLALIMRPhenomXPCheckMassesAndSpins failed.\n");
+
+  /* Perform initial sanity checks */
+  if(m1_SI    <= 0.0) { XLAL_ERROR(XLAL_EDOM, "m1 must be positive.\n");                                              }
+  if(m2_SI    <= 0.0) { XLAL_ERROR(XLAL_EDOM, "m2 must be positive.\n");     }
+
+  /* Use an auxiliar laldict to not overwrite the input argument */
+  LALDict *lalParams_aux;
+  /* setup mode array */
+  if (lalParams == NULL)
+  {
+      lalParams_aux = XLALCreateDict();
+  }
+  else{
+      lalParams_aux = XLALDictDuplicate(lalParams);
+  }
+
+/* Spins aligned with the orbital angular momenta */
+  const REAL8 chi1L = chi1z;
+  const REAL8 chi2L = chi2z;
+
+  const REAL8 deltaF = 0.0001;
+  const REAL8 f_min = 20;
+  const REAL8 f_max = 1024;
+  const REAL8 distance = 1.0;
+  const REAL8 inclination = 0.0;
+  const REAL8 fRef = f_min;
+  const REAL8 phiRef = 0.0;
+
+  /* Initialize useful powers of LAL_PI - this is used in the code called by IMRPhenomXPGenerateFD */
+  status = IMRPhenomX_Initialize_Powers(&powers_of_lalpi, LAL_PI);
+  XLAL_CHECK(XLAL_SUCCESS == status, status, "Failed to initialize useful powers of LAL_PI.\n");
+
+  /* Initialize IMR PhenomX Waveform struct and check that it initialized correctly */
+  IMRPhenomXWaveformStruct *pWF;
+  pWF    = XLALMalloc(sizeof(IMRPhenomXWaveformStruct));
+  status = IMRPhenomXSetWaveformVariables(pWF, m1_SI, m2_SI, chi1L, chi2L, deltaF, fRef, phiRef, f_min, f_max, distance, inclination, lalParams_aux, 0);
+  // status = IMRPhenomXSetWaveformVariables(pWF, m1_SI, m2_SI, chi1L, chi2L, deltaF, 20.0, 20.0, 10.0, 1024.0, 3.085677581491367e24, 0, lalParams_aux, 0);
+  XLAL_CHECK(XLAL_SUCCESS == status, XLAL_EFUNC, "Error: IMRPhenomXSetWaveformVariables failed.\n");
+
+  /* Initialize IMR PhenomX Precession struct and check that it generated successfully */
+  IMRPhenomXPrecessionStruct *pPrec;
+  pPrec  = XLALMalloc(sizeof(IMRPhenomXPrecessionStruct));
+
+  status = IMRPhenomXGetAndSetPrecessionVariables(
+           pWF,
+           pPrec,
+           m1_SI,
+           m2_SI,
+           chi1x,
+           chi1y,
+           chi1z,
+           chi2x,
+           chi2y,
+           chi2z,
+           lalParams_aux,
+           PHENOMXPDEBUG
+         );
+  XLAL_CHECK(XLAL_SUCCESS == status, XLAL_EFUNC, "Error: IMRPhenomXSetPrecessionVariables failed.\n");
+
+  //
+  REAL8 betaRD = pWF->betaRD;
+
+  /* free up memory allocation */
+  LALFree(pPrec);
+  LALFree(pWF);
+  XLALDestroyDict(lalParams_aux);
+
+  //
+  return betaRD;
+
+}
+
+
+
+
+/* ~~~~~~~~~~ Final spin ~~~~~~~~~~ */
+REAL8 XLALSimPhenomPNRafinal_prec(  REAL8 m1_SI, REAL8 m2_SI, REAL8 chi1x, REAL8 chi1y, REAL8 chi1z, REAL8 chi2x, REAL8 chi2y, REAL8 chi2z, LALDict *lalParams ) {
+  UINT4 status;
+
+  status = XLALIMRPhenomXPCheckMassesAndSpins(&m1_SI,&m2_SI,&chi1x,&chi1y,&chi1z,&chi2x,&chi2y,&chi2z);
+  XLAL_CHECK(XLAL_SUCCESS == status, XLAL_EFUNC, "Error: XLALIMRPhenomXPCheckMassesAndSpins failed.\n");
+
+  /* Perform initial sanity checks */
+  if(m1_SI    <= 0.0) { XLAL_ERROR(XLAL_EDOM, "m1 must be positive.\n");                                              }
+  if(m2_SI    <= 0.0) { XLAL_ERROR(XLAL_EDOM, "m2 must be positive.\n");     }
+
+  /* Use an auxiliar laldict to not overwrite the input argument */
+  LALDict *lalParams_aux;
+  /* setup mode array */
+  if (lalParams == NULL)
+  {
+      lalParams_aux = XLALCreateDict();
+  }
+  else{
+      lalParams_aux = XLALDictDuplicate(lalParams);
+  }
+
+/* Spins aligned with the orbital angular momenta */
+  const REAL8 chi1L = chi1z;
+  const REAL8 chi2L = chi2z;
+
+  const REAL8 deltaF = 0.0001;
+  const REAL8 f_min = 20;
+  const REAL8 f_max = 1024;
+  const REAL8 distance = 1.0;
+  const REAL8 inclination = 0.0;
+  const REAL8 fRef = f_min;
+  const REAL8 phiRef = 0.0;
+
+  /* Initialize useful powers of LAL_PI - this is used in the code called by IMRPhenomXPGenerateFD */
+  status = IMRPhenomX_Initialize_Powers(&powers_of_lalpi, LAL_PI);
+  XLAL_CHECK(XLAL_SUCCESS == status, status, "Failed to initialize useful powers of LAL_PI.\n");
+
+  /* Initialize IMR PhenomX Waveform struct and check that it initialized correctly */
+  IMRPhenomXWaveformStruct *pWF;
+  pWF    = XLALMalloc(sizeof(IMRPhenomXWaveformStruct));
+  status = IMRPhenomXSetWaveformVariables(pWF, m1_SI, m2_SI, chi1L, chi2L, deltaF, fRef, phiRef, f_min, f_max, distance, inclination, lalParams_aux, 0);
+  // status = IMRPhenomXSetWaveformVariables(pWF, m1_SI, m2_SI, chi1L, chi2L, deltaF, 20.0, 20.0, 10.0, 1024.0, 3.085677581491367e24, 0, lalParams_aux, 0);
+  XLAL_CHECK(XLAL_SUCCESS == status, XLAL_EFUNC, "Error: IMRPhenomXSetWaveformVariables failed.\n");
+
+  /* Initialize IMR PhenomX Precession struct and check that it generated successfully */
+  IMRPhenomXPrecessionStruct *pPrec;
+  pPrec  = XLALMalloc(sizeof(IMRPhenomXPrecessionStruct));
+
+  status = IMRPhenomXGetAndSetPrecessionVariables(
+           pWF,
+           pPrec,
+           m1_SI,
+           m2_SI,
+           chi1x,
+           chi1y,
+           chi1z,
+           chi2x,
+           chi2y,
+           chi2z,
+           lalParams_aux,
+           PHENOMXPDEBUG
+         );
+  XLAL_CHECK(XLAL_SUCCESS == status, XLAL_EFUNC, "Error: IMRPhenomXSetPrecessionVariables failed.\n");
+
+    //
+  REAL8 afinal_prec = pWF->afinal_prec;
+
+  /* free up memory allocation */
+  LALFree(pPrec);
+  LALFree(pWF);
+  XLALDestroyDict(lalParams_aux);
+
+  //
+  return afinal_prec;
+
+}
+
+
+
+
+/* ~~~~~~~~~~ Final spin ~~~~~~~~~~ */
+REAL8 XLALSimPhenomPNRafinal_nonprec(  REAL8 m1_SI, REAL8 m2_SI, REAL8 chi1x, REAL8 chi1y, REAL8 chi1z, REAL8 chi2x, REAL8 chi2y, REAL8 chi2z, LALDict *lalParams ) {
+  UINT4 status;
+
+  status = XLALIMRPhenomXPCheckMassesAndSpins(&m1_SI,&m2_SI,&chi1x,&chi1y,&chi1z,&chi2x,&chi2y,&chi2z);
+  XLAL_CHECK(XLAL_SUCCESS == status, XLAL_EFUNC, "Error: XLALIMRPhenomXPCheckMassesAndSpins failed.\n");
+
+  /* Perform initial sanity checks */
+  if(m1_SI    <= 0.0) { XLAL_ERROR(XLAL_EDOM, "m1 must be positive.\n");                                              }
+  if(m2_SI    <= 0.0) { XLAL_ERROR(XLAL_EDOM, "m2 must be positive.\n");     }
+
+  /* Use an auxiliar laldict to not overwrite the input argument */
+  LALDict *lalParams_aux;
+  /* setup mode array */
+  if (lalParams == NULL)
+  {
+      lalParams_aux = XLALCreateDict();
+  }
+  else{
+      lalParams_aux = XLALDictDuplicate(lalParams);
+  }
+
+/* Spins aligned with the orbital angular momenta */
+  const REAL8 chi1L = chi1z;
+  const REAL8 chi2L = chi2z;
+
+  const REAL8 deltaF = 0.0001;
+  const REAL8 f_min = 20;
+  const REAL8 f_max = 1024;
+  const REAL8 distance = 1.0;
+  const REAL8 inclination = 0.0;
+  const REAL8 fRef = f_min;
+  const REAL8 phiRef = 0.0;
+
+  /* Initialize useful powers of LAL_PI - this is used in the code called by IMRPhenomXPGenerateFD */
+  status = IMRPhenomX_Initialize_Powers(&powers_of_lalpi, LAL_PI);
+  XLAL_CHECK(XLAL_SUCCESS == status, status, "Failed to initialize useful powers of LAL_PI.\n");
+
+  /* Initialize IMR PhenomX Waveform struct and check that it initialized correctly */
+  IMRPhenomXWaveformStruct *pWF;
+  pWF    = XLALMalloc(sizeof(IMRPhenomXWaveformStruct));
+  status = IMRPhenomXSetWaveformVariables(pWF, m1_SI, m2_SI, chi1L, chi2L, deltaF, fRef, phiRef, f_min, f_max, distance, inclination, lalParams_aux, 0);
+  // status = IMRPhenomXSetWaveformVariables(pWF, m1_SI, m2_SI, chi1L, chi2L, deltaF, 20.0, 20.0, 10.0, 1024.0, 3.085677581491367e24, 0, lalParams_aux, 0);
+  XLAL_CHECK(XLAL_SUCCESS == status, XLAL_EFUNC, "Error: IMRPhenomXSetWaveformVariables failed.\n");
+
+  /* Initialize IMR PhenomX Precession struct and check that it generated successfully */
+  IMRPhenomXPrecessionStruct *pPrec;
+  pPrec  = XLALMalloc(sizeof(IMRPhenomXPrecessionStruct));
+
+  status = IMRPhenomXGetAndSetPrecessionVariables(
+           pWF,
+           pPrec,
+           m1_SI,
+           m2_SI,
+           chi1x,
+           chi1y,
+           chi1z,
+           chi2x,
+           chi2y,
+           chi2z,
+           lalParams_aux,
+           PHENOMXPDEBUG
+         );
+  XLAL_CHECK(XLAL_SUCCESS == status, XLAL_EFUNC, "Error: IMRPhenomXSetPrecessionVariables failed.\n");
+
+  REAL8 afinal_nonprec = pWF->afinal_nonprec;
+
+  /* free up memory allocation */
+  LALFree(pPrec);
+  LALFree(pWF);
+  XLALDestroyDict(lalParams_aux);
+
+  //
+  return afinal_nonprec;
+
+}
+
+
+
+
+
+
+
+/* ~~~~~~~~~~ Final spin ~~~~~~~~~~ */
+REAL8 XLALSimPhenomPNRafinal(  REAL8 m1_SI, REAL8 m2_SI, REAL8 chi1x, REAL8 chi1y, REAL8 chi1z, REAL8 chi2x, REAL8 chi2y, REAL8 chi2z, LALDict *lalParams ) {
+  UINT4 status;
+
+  status = XLALIMRPhenomXPCheckMassesAndSpins(&m1_SI,&m2_SI,&chi1x,&chi1y,&chi1z,&chi2x,&chi2y,&chi2z);
+  XLAL_CHECK(XLAL_SUCCESS == status, XLAL_EFUNC, "Error: XLALIMRPhenomXPCheckMassesAndSpins failed.\n");
+
+  /* Perform initial sanity checks */
+  if(m1_SI    <= 0.0) { XLAL_ERROR(XLAL_EDOM, "m1 must be positive.\n");                                              }
+  if(m2_SI    <= 0.0) { XLAL_ERROR(XLAL_EDOM, "m2 must be positive.\n");     }
+
+  /* Use an auxiliar laldict to not overwrite the input argument */
+  LALDict *lalParams_aux;
+  /* setup mode array */
+  if (lalParams == NULL)
+  {
+      lalParams_aux = XLALCreateDict();
+  }
+  else{
+      lalParams_aux = XLALDictDuplicate(lalParams);
+  }
+
+/* Spins aligned with the orbital angular momenta */
+  const REAL8 chi1L = chi1z;
+  const REAL8 chi2L = chi2z;
+
+  const REAL8 deltaF = 0.0001;
+  const REAL8 f_min = 20;
+  const REAL8 f_max = 1024;
+  const REAL8 distance = 1.0;
+  const REAL8 inclination = 0.0;
+  const REAL8 fRef = f_min;
+  const REAL8 phiRef = 0.0;
+
+  /* Initialize useful powers of LAL_PI - this is used in the code called by IMRPhenomXPGenerateFD */
+  status = IMRPhenomX_Initialize_Powers(&powers_of_lalpi, LAL_PI);
+  XLAL_CHECK(XLAL_SUCCESS == status, status, "Failed to initialize useful powers of LAL_PI.\n");
+
+  /* Initialize IMR PhenomX Waveform struct and check that it initialized correctly */
+  IMRPhenomXWaveformStruct *pWF;
+  pWF    = XLALMalloc(sizeof(IMRPhenomXWaveformStruct));
+  status = IMRPhenomXSetWaveformVariables(pWF, m1_SI, m2_SI, chi1L, chi2L, deltaF, fRef, phiRef, f_min, f_max, distance, inclination, lalParams_aux, 0);
+  // status = IMRPhenomXSetWaveformVariables(pWF, m1_SI, m2_SI, chi1L, chi2L, deltaF, 20.0, 20.0, 10.0, 1024.0, 3.085677581491367e24, 0, lalParams_aux, 0);
+  XLAL_CHECK(XLAL_SUCCESS == status, XLAL_EFUNC, "Error: IMRPhenomXSetWaveformVariables failed.\n");
+
+  /* Initialize IMR PhenomX Precession struct and check that it generated successfully */
+  IMRPhenomXPrecessionStruct *pPrec;
+  pPrec  = XLALMalloc(sizeof(IMRPhenomXPrecessionStruct));
+
+  status = IMRPhenomXGetAndSetPrecessionVariables(
+           pWF,
+           pPrec,
+           m1_SI,
+           m2_SI,
+           chi1x,
+           chi1y,
+           chi1z,
+           chi2x,
+           chi2y,
+           chi2z,
+           lalParams_aux,
+           PHENOMXPDEBUG
+         );
+  XLAL_CHECK(XLAL_SUCCESS == status, XLAL_EFUNC, "Error: IMRPhenomXSetPrecessionVariables failed.\n");
+
+
+  //
+  REAL8 afinal = pWF->afinal;
+
+  /* free up memory allocation */
+  LALFree(pPrec);
+  LALFree(pWF);
+  XLALDestroyDict(lalParams_aux);
+
+  return afinal;
+
+}
+
+
+
+/* ~~~~~~~~~~ Window function ~~~~~~~~~~ */
+REAL8 XLALSimPhenomPNRwindow(  REAL8 m1_SI, REAL8 m2_SI, REAL8 chi1x, REAL8 chi1y, REAL8 chi1z, REAL8 chi2x, REAL8 chi2y, REAL8 chi2z, LALDict *lalParams ) {
+  UINT4 status;
+
+  status = XLALIMRPhenomXPCheckMassesAndSpins(&m1_SI,&m2_SI,&chi1x,&chi1y,&chi1z,&chi2x,&chi2y,&chi2z);
+  XLAL_CHECK(XLAL_SUCCESS == status, XLAL_EFUNC, "Error: XLALIMRPhenomXPCheckMassesAndSpins failed.\n");
+
+  /* Perform initial sanity checks */
+  if(m1_SI    <= 0.0) { XLAL_ERROR(XLAL_EDOM, "m1 must be positive.\n");                                              }
+  if(m2_SI    <= 0.0) { XLAL_ERROR(XLAL_EDOM, "m2 must be positive.\n");     }
+
+  /* Use an auxiliar laldict to not overwrite the input argument */
+  LALDict *lalParams_aux;
+  /* setup mode array */
+  if (lalParams == NULL)
+  {
+      lalParams_aux = XLALCreateDict();
+  }
+  else{
+      lalParams_aux = XLALDictDuplicate(lalParams);
+  }
+
+/* Spins aligned with the orbital angular momenta */
+  const REAL8 chi1L = chi1z;
+  const REAL8 chi2L = chi2z;
+
+  const REAL8 deltaF = 0.0001;
+  const REAL8 f_min = 20;
+  const REAL8 f_max = 1024;
+  const REAL8 distance = 1.0;
+  const REAL8 inclination = 0.0;
+  const REAL8 fRef = f_min;
+  const REAL8 phiRef = 0.0;
+
+  /* Initialize useful powers of LAL_PI - this is used in the code called by IMRPhenomXPGenerateFD */
+  status = IMRPhenomX_Initialize_Powers(&powers_of_lalpi, LAL_PI);
+  XLAL_CHECK(XLAL_SUCCESS == status, status, "Failed to initialize useful powers of LAL_PI.\n");
+
+  /* Initialize IMR PhenomX Waveform struct and check that it initialized correctly */
+  IMRPhenomXWaveformStruct *pWF;
+  pWF    = XLALMalloc(sizeof(IMRPhenomXWaveformStruct));
+  status = IMRPhenomXSetWaveformVariables(pWF, m1_SI, m2_SI, chi1L, chi2L, deltaF, fRef, phiRef, f_min, f_max, distance, inclination, lalParams_aux, 0);
+  // status = IMRPhenomXSetWaveformVariables(pWF, m1_SI, m2_SI, chi1L, chi2L, deltaF, 20.0, 20.0, 10.0, 1024.0, 3.085677581491367e24, 0, lalParams_aux, 0);
+  XLAL_CHECK(XLAL_SUCCESS == status, XLAL_EFUNC, "Error: IMRPhenomXSetWaveformVariables failed.\n");
+
+  /* Initialize IMR PhenomX Precession struct and check that it generated successfully */
+  IMRPhenomXPrecessionStruct *pPrec;
+  pPrec  = XLALMalloc(sizeof(IMRPhenomXPrecessionStruct));
+
+  status = IMRPhenomXGetAndSetPrecessionVariables(
+           pWF,
+           pPrec,
+           m1_SI,
+           m2_SI,
+           chi1x,
+           chi1y,
+           chi1z,
+           chi2x,
+           chi2y,
+           chi2z,
+           lalParams_aux,
+           PHENOMXPDEBUG
+         );
+  XLAL_CHECK(XLAL_SUCCESS == status, XLAL_EFUNC, "Error: IMRPhenomXSetPrecessionVariables failed.\n");
+
+  //
+  REAL8 pnr_window = pWF->pnr_window;
+
+  /* free up memory allocation */
+  LALFree(pPrec);
+  LALFree(pWF);
+  XLALDestroyDict(lalParams_aux);
+
+  return pnr_window;
+
 }

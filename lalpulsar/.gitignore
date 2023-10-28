@@ -15,11 +15,13 @@ config.lt
 debian/control
 debian/liblal*.install
 doxygen/autogen.dox
+doxygen/doxygen_header.html
 doxygen/doxygen_objdb_*.tmp
 doxygen/doxygen_sqlite3.db
 doxygen/doxygen.cfg
 doxygen/filter
 doxygen/in/
+doxygen/make_autogen_dox
 doxygen/out/
 doxygen/test_doxygen.*
 include/lal/*.h
@@ -105,6 +107,7 @@ bin/MakeData/lalpulsar_MakeSFTDAG
 bin/MakeData/lalpulsar_MakeSFTs
 bin/MakeData/lalpulsar_Makefakedata_v4
 bin/MakeData/lalpulsar_Makefakedata_v5
+bin/MakeData/makeMultiChFrame
 bin/SFTTools/SFTwrite
 bin/SFTTools/lalpulsar_ComputePSD
 bin/SFTTools/lalpulsar_SFTclean

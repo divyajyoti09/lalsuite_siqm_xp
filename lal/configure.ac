@@ -1,5 +1,5 @@
 AC_PREREQ([2.63])
-AC_INIT([LAL],[7.3.0.1],[lal-discuss@ligo.org])
+AC_INIT([LAL],[7.4.1.1],[lal-discuss@ligo.org])
 AC_CONFIG_HEADERS([lib/config.h lib/LALConfig.h])
 AC_CONFIG_SRCDIR([lib/std/LALStdio.h])
 AC_CONFIG_AUX_DIR([gnuscripts])
@@ -20,7 +20,7 @@ AC_CONFIG_MACRO_DIR([gnuscripts])
 # 6. if any interfaces have been removed since the last public release,
 #    then set age to 0.
 AC_SUBST([LIBCURRENT],[23])
-AC_SUBST([LIBREVISION],[0])
+AC_SUBST([LIBREVISION],[2])
 AC_SUBST([LIBAGE],[3])
 AC_SUBST([LIBVERSION],[${LIBCURRENT}:${LIBREVISION}:${LIBAGE}])
 AS_CASE([${host_os}],
@@ -42,9 +42,9 @@ AS_CASE([${host_os}],
 #    then increment age.
 # 6. if any interfaces have been removed since the last public release,
 #    then set age to 0.
-AC_SUBST([LIBCURRENT_SUPPORT],[15])
+AC_SUBST([LIBCURRENT_SUPPORT],[16])
 AC_SUBST([LIBREVISION_SUPPORT],[0])
-AC_SUBST([LIBAGE_SUPPORT],[1])
+AC_SUBST([LIBAGE_SUPPORT],[2])
 AC_SUBST([LIBVERSION_SUPPORT],[${LIBCURRENT_SUPPORT}:${LIBREVISION_SUPPORT}:${LIBAGE_SUPPORT}])
 AS_CASE([${host_os}],
   [freebsd-aout|qnx|sco|sunos], [AC_SUBST([LIBMAJOR_SUPPORT],[${LIBCURRENT_SUPPORT}])],
@@ -65,7 +65,6 @@ AC_CONFIG_FILES([ \
   debian/liblal${LIBMAJOR}.install:debian/liblal.install.in \
   debian/liblalsupport${LIBMAJOR_SUPPORT}.install:debian/liblalsupport.install.in \
   doxygen/Makefile \
-  doxygen/doxygen.cfg \
   include/Makefile \
   include/lal/Makefile \
   lal.pc \
@@ -128,6 +127,7 @@ AC_CANONICAL_HOST
 LALSUITE_CHECK_PLATFORM
 LALSUITE_CHECK_GIT_REPO
 LALSUITE_DISTCHECK_CONFIGURE_FLAGS
+LALSUITE_WITH_FALLBACK_DATA_PATH
 
 LAL_ENABLE_INTELFFT
 LAL_ENABLE_FFTW3_MEMALIGN
@@ -136,7 +136,6 @@ LALSUITE_ENABLE_GCC_FLAGS
 LALSUITE_ENABLE_STRICT_DEFS
 
 LAL_WITH_DEFAULT_DEBUG_LEVEL
-LAL_WITH_DATA_PATH
 LAL_ENABLE_MEMORY_FUNCTIONS
 LAL_ENABLE_PTHREAD_LOCK
 LALSUITE_ENABLE_NIGHTLY
@@ -349,7 +348,6 @@ LALSUITE_ADD_GCC_FLAGS
 AC_SUBST([LDADD], ["\$(top_builddir)/lib/liblal.la \$(top_builddir)/lib/support/liblalsupport.la"])
 
 # add extra preprocessor flags
-AM_CPPFLAGS="-DPKG_DATA_DIR='\"\$(pkgdatadir)/\"' ${AM_CPPFLAGS}"
 AM_CPPFLAGS="-I\$(top_builddir)/include -I\$(top_srcdir)/lib ${AM_CPPFLAGS}"
 
 # force all python modules into the exec dir to prevent mixed C and

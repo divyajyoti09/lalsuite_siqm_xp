@@ -1,5 +1,5 @@
 AC_PREREQ([2.63])
-AC_INIT([LALSimulation],[5.0.0.1],[lal-discuss@ligo.org])
+AC_INIT([LALSimulation],[5.3.1.1],[lal-discuss@ligo.org])
 AC_CONFIG_HEADERS([lib/config.h lib/LALSimulationConfig.h])
 AC_CONFIG_SRCDIR([lib/LALSimulation.c])
 AC_CONFIG_AUX_DIR([gnuscripts])
@@ -19,9 +19,9 @@ AC_CONFIG_MACRO_DIR([gnuscripts])
 #    then increment age.
 # 6. if any interfaces have been removed since the last public release,
 #    then set age to 0.
-AC_SUBST([LIBCURRENT],[32])
+AC_SUBST([LIBCURRENT],[35])
 AC_SUBST([LIBREVISION],[0])
-AC_SUBST([LIBAGE],[0])
+AC_SUBST([LIBAGE],[3])
 AC_SUBST([LIBVERSION],[${LIBCURRENT}:${LIBREVISION}:${LIBAGE}])
 AS_CASE([${host_os}],
   [freebsd-aout|qnx|sco|sunos], [AC_SUBST([LIBMAJOR],[${LIBCURRENT}])],
@@ -37,7 +37,6 @@ AC_CONFIG_FILES([ \
   debian/control \
   debian/liblalsimulation${LIBMAJOR}.install:debian/liblalsimulation.install.in \
   doxygen/Makefile \
-  doxygen/doxygen.cfg \
   include/Makefile \
   include/lal/Makefile \
   lalsimulation.pc \
@@ -47,6 +46,9 @@ AC_CONFIG_FILES([ \
   python/lalsimulation/__init__.py \
   python/lalsimulation/nrfits/Makefile \
   python/lalsimulation/tilts_at_infinity/Makefile \
+  python/lalsimulation/gwsignal/Makefile \
+  python/lalsimulation/gwsignal/core/Makefile \
+  python/lalsimulation/gwsignal/models/Makefile \
   lib/LALSimulationVCSInfo.c \
   lib/LALSimulationVCSInfo.h \
   lib/Makefile \
@@ -72,7 +74,7 @@ AM_INIT_AUTOMAKE([ \
 ])
 
 # version requirements
-MIN_LAL_VERSION="7.3.0"
+MIN_LAL_VERSION="7.4.0"
 AC_SUBST([MIN_LAL_VERSION])
 
 AC_CANONICAL_HOST
@@ -82,6 +84,7 @@ LALSUITE_ARG_VAR
 LALSUITE_CHECK_PLATFORM
 LALSUITE_CHECK_GIT_REPO
 LALSUITE_DISTCHECK_CONFIGURE_FLAGS
+LALSUITE_WITH_FALLBACK_DATA_PATH
 
 # nightly build
 LALSUITE_ENABLE_NIGHTLY
@@ -150,6 +153,61 @@ LALSUITE_ENABLE_FAST_GSL
 # check for gsl headers
 AC_CHECK_HEADERS([gsl/gsl_errno.h],,[AC_MSG_ERROR([could not find the gsl/gsl_errno.h header])])
 
+# check for python3-embed
+PKG_CHECK_MODULES([PYTHON3_EMBED],[python3-embed],[have_python3_embed=true],[have_python3_embed=false])
+if test "x$have_python3_embed" = xtrue; then
+
+    # separate out -l and -L LIBS 
+    AC_SUBST([PYTHON3_EMBED_LIBADD],[])
+    for flag in ${PYTHON3_EMBED_LIBS}; do
+       case $flag in
+          -l*) PYTHON3_EMBED_LIBADD="${PYTHON3_EMBED_LIBADD} ${flag}";;
+          *) _PYTHON3_EMBED_LIBS="${_PYTHON3_EMBED_LIBS} ${flag}";;
+       esac
+    done
+    PYTHON3_EMBED_LIBS="${_PYTHON3_EMBED_LIBS}"
+
+    # check for NumPy
+    AC_MSG_CHECKING([for NumPy])
+    numpy_version=[`cat <<EOD | ${PYTHON} - 2>/dev/null
+import numpy
+print(numpy.__version__)
+EOD`]
+    AS_IF([test $? -ne 0],[
+        AC_MSG_ERROR([could not import NumPy])
+    ])
+    AC_MSG_RESULT([yes])
+
+    # additional preprocessor flags for NumPy
+    python_out=[`cat <<EOD | ${PYTHON} - 2>/dev/null
+import sys
+import numpy.lib.utils as npyutil
+sys.stdout.write(' -I' + npyutil.get_include())
+EOD`]
+    AS_IF([test $? -ne 0],[
+        AC_MSG_ERROR([could not determine NumPy preprocessor flags])
+    ])
+    for flag in ${python_out}; do
+        PYTHON3_EMBED_CFLAGS="${PYTHON3_EMBED_CFLAGS} ${flag}"
+    done
+
+    LALSUITE_ADD_FLAGS([C],[${PYTHON3_EMBED_CFLAGS}],[${PYTHON3_EMBED_LIBS}])
+
+    AC_CHECK_HEADERS([Python.h],[],[
+        AC_MSG_ERROR([could not find the Python.h header])
+    ],[
+        AC_INCLUDES_DEFAULT
+    ])
+    AC_CHECK_HEADER([numpy/arrayobject.h],[],[
+        AC_MSG_ERROR([could not find the header "numpy/arrayobject.h"])
+    ],[
+        AC_INCLUDES_DEFAULT
+        #include <Python.h>
+    ])
+
+    AC_DEFINE([HAVE_PYTHON3_EMBED],[1],[Define to 1 to use python3-embed])
+fi
+
 # check for lal libraries and headers
 LALSUITE_CHECK_LIB([LAL],[${MIN_LAL_VERSION}],[XLALPerror],[lal/XLALError.h])
 LALSUITE_CHECK_LIB([LALSupport],[${MIN_LAL_VERSION}],[XLALCacheImport],[lal/LALCache.h])
@@ -167,7 +225,6 @@ LALSUITE_ADD_GCC_FLAGS
 AC_SUBST([LDADD], ["\$(top_builddir)/lib/liblalsimulation.la"])
 
 # add extra preprocessor flags
-AM_CPPFLAGS="-DPKG_DATA_DIR='\"\$(pkgdatadir)/\"' ${AM_CPPFLAGS}"
 AM_CPPFLAGS="-I\$(top_builddir)/include ${AM_CPPFLAGS}"
 
 # force headers to be installed in ${includedir}/lal, ignoring library name

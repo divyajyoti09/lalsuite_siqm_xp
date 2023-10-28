@@ -1,5 +1,5 @@
 AC_PREREQ([2.63])
-AC_INIT([LALInference],[4.1.2.1],[lal-discuss@ligo.org])
+AC_INIT([LALInference],[4.1.5.1],[lal-discuss@ligo.org])
 AC_CONFIG_HEADERS([lib/config.h lib/LALInferenceConfig.h])
 AC_CONFIG_SRCDIR([lib/LALInference.h])
 AC_CONFIG_AUX_DIR([gnuscripts])
@@ -20,7 +20,7 @@ AC_CONFIG_MACRO_DIR([gnuscripts])
 # 6. if any interfaces have been removed since the last public release,
 #    then set age to 0.
 AC_SUBST([LIBCURRENT],[24])
-AC_SUBST([LIBREVISION],[2])
+AC_SUBST([LIBREVISION],[4])
 AC_SUBST([LIBAGE],[1])
 AC_SUBST([LIBVERSION],[${LIBCURRENT}:${LIBREVISION}:${LIBAGE}])
 AS_CASE([${host_os}],
@@ -37,7 +37,6 @@ AC_CONFIG_FILES([ \
   debian/control \
   debian/liblalinference${LIBMAJOR}.install:debian/liblalinference.install.in \
   doxygen/Makefile \
-  doxygen/doxygen.cfg \
   include/Makefile \
   include/lal/Makefile \
   lalinference.pc \
@@ -76,10 +75,10 @@ AM_INIT_AUTOMAKE([ \
 
 # version requirements
 MIN_GLUE_VERSION="1.54.1"
-MIN_LAL_VERSION="7.3.0"
+MIN_LAL_VERSION="7.4.0"
 MIN_LALMETAIO_VERSION="4.0.0"
 MIN_LALFRAME_VERSION="3.0.0"
-MIN_LALSIMULATION_VERSION="5.0.0"
+MIN_LALSIMULATION_VERSION="5.3.0"
 MIN_LALBURST_VERSION="2.0.0"
 MIN_LALINSPIRAL_VERSION="4.0.0"
 MIN_PYTHON_LIGO_LW_VERSION="1.7.0"
@@ -99,6 +98,7 @@ LALSUITE_ARG_VAR
 LALSUITE_CHECK_PLATFORM
 LALSUITE_CHECK_GIT_REPO
 LALSUITE_DISTCHECK_CONFIGURE_FLAGS
+LALSUITE_WITH_FALLBACK_DATA_PATH
 
 # nightly build
 LALSUITE_ENABLE_NIGHTLY
@@ -212,7 +212,6 @@ LALSUITE_ADD_GCC_FLAGS
 AC_SUBST([LDADD], ["\$(top_builddir)/lib/liblalinference.la"])
 
 # add extra preprocessor flags
-AM_CPPFLAGS="-DPKG_DATA_DIR='\"\$(pkgdatadir)/\"' ${AM_CPPFLAGS}"
 AM_CPPFLAGS="-I\$(top_builddir)/include ${AM_CPPFLAGS}"
 
 # force headers to be installed in ${includedir}/lal, ignoring library name

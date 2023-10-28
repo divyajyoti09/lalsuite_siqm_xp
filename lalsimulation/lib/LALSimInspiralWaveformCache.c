@@ -135,7 +135,18 @@ int XLALSimInspiralChooseTDWaveformFromCache(
     CacheVariableDiffersBitmask changedParams;
 
     // If nonGRparams are not NULL, don't even try to cache.
-    if ( !XLALSimInspiralWaveformParamsNonGRAreDefault(LALpars) || (!cache) )
+    if ( !XLALSimInspiralWaveformParamsNonGRAreDefault(LALpars) || (!cache) ||
+	!XLALSimInspiralWaveformParamsDOmega220IsDefault(LALpars) ||
+	!XLALSimInspiralWaveformParamsDTau220IsDefault(LALpars) ||
+        !XLALSimInspiralWaveformParamsDOmega210IsDefault(LALpars) ||
+        !XLALSimInspiralWaveformParamsDTau210IsDefault(LALpars) ||
+        !XLALSimInspiralWaveformParamsDOmega330IsDefault(LALpars) ||
+        !XLALSimInspiralWaveformParamsDTau330IsDefault(LALpars) ||
+        !XLALSimInspiralWaveformParamsDOmega440IsDefault(LALpars) ||
+        !XLALSimInspiralWaveformParamsDTau440IsDefault(LALpars) ||
+        !XLALSimInspiralWaveformParamsDOmega550IsDefault(LALpars) ||
+        !XLALSimInspiralWaveformParamsDTau550IsDefault(LALpars))
+
 
       return XLALSimInspiralChooseTDWaveform(hplus, hcross, m1, m2, S1x, S1y, S1z, S2x, S2y, S2z,
 					     r, i, phiRef, 0., 0., 0., deltaT, f_min, f_ref, LALpars,
@@ -688,7 +699,7 @@ static CacheVariableDiffersBitmask CacheArgsDifferenceBitmask(
     if ( XLALSimInspiralWaveformParamsLookupTidalHexadecapolarLambda2(LALpars) != XLALSimInspiralWaveformParamsLookupTidalHexadecapolarLambda1(cache->LALpars)) return INTRINSIC;
     if ( XLALSimInspiralWaveformParamsLookupdQuadMon1(LALpars) != XLALSimInspiralWaveformParamsLookupdQuadMon1(cache->LALpars)) return INTRINSIC;
     if ( XLALSimInspiralWaveformParamsLookupdQuadMon2(LALpars) != XLALSimInspiralWaveformParamsLookupdQuadMon2(cache->LALpars)) return INTRINSIC;
-    
+
     if ( XLALSimInspiralWaveformParamsLookupPNAmplitudeOrder(LALpars) != XLALSimInspiralWaveformParamsLookupPNAmplitudeOrder(cache->LALpars)) return INTRINSIC;
     if ( XLALSimInspiralWaveformParamsLookupPNAmplitudeOrder(LALpars) != XLALSimInspiralWaveformParamsLookupPNAmplitudeOrder(cache->LALpars)) return INTRINSIC;
 
@@ -902,6 +913,8 @@ int XLALSimInspiralChooseFDWaveformSequence(
     REAL8 chi1_l, chi2_l, chip, thetaJN, alpha0, phi_aligned, zeta_polariz, cos_2zeta, sin_2zeta;
     COMPLEX16 PhPpolp, PhPpolc;
 
+	LALDict *LALparams_aux;
+
     /* General sanity checks that will abort
      *
      * If non-GR approximants are added, include them in
@@ -1067,6 +1080,20 @@ int XLALSimInspiralChooseFDWaveformSequence(
             int nModes = 5;
             ret = XLALSimIMRSEOBNRv4HMROMFrequencySequence(hptilde, hctilde, frequencies,
             phiRef, f_ref, distance, inclination, m1, m2, S1z, S2z, -1, nModes, LALpars);
+            break;
+
+        case SEOBNRv5_ROM:
+            /* Waveform-specific sanity checks */
+            if( !XLALSimInspiralWaveformParamsFlagsAreDefault(LALpars) )
+                XLAL_ERROR(XLAL_EINVAL, "Non-default flags given, but this approximant does not support this case.");
+            if( !checkTransverseSpinsZero(S1x, S1y, S2x, S2y) )
+                XLAL_ERROR(XLAL_EINVAL, "Non-zero transverse spins were given, but this is a non-precessing approximant.");
+            if( !checkTidesZero(lambda1, lambda2) )
+                XLAL_ERROR(XLAL_EINVAL, "Non-zero tidal parameters were given, but this is approximant doe not have tidal corrections.");
+
+            int nModesv5 = 1;
+            ret = XLALSimIMRSEOBNRv5HMROMFrequencySequence(hptilde, hctilde, frequencies,
+            phiRef, f_ref, distance, inclination, m1, m2, S1z, S2z, -1, nModesv5, LALpars);
             break;
 
         case SEOBNRv4_ROM_NRTidal:
@@ -1345,7 +1372,8 @@ int XLALSimInspiralChooseFDWaveformSequence(
                 XLAL_ERROR(XLAL_EFUNC);
             break;
 
-	      case IMRPhenomXAS:
+        case IMRPhenomXAS:
+        {
               /* Waveform-specific sanity checks */
               if( !XLALSimInspiralWaveformParamsFlagsAreDefault(LALpars) )
               XLAL_ERROR(XLAL_EINVAL, "Non-default flags given, but this approximant does not support this case.");
@@ -1376,7 +1404,48 @@ int XLALSimInspiralChooseFDWaveformSequence(
                 (*hctilde)->data->data[j] = -I*cfac * (*hptilde)->data->data[j] * Ylmfactor;
                 (*hptilde)->data->data[j] *= pfac * Ylmfactor;
               }
+        }
               break;
+            
+            case IMRPhenomXAS_NRTidalv2:
+        {
+            /* Waveform-specific sanity checks */
+            if( !XLALSimInspiralWaveformParamsFlagsAreDefault(LALpars) )
+            XLAL_ERROR(XLAL_EINVAL, "Non-default flags given, but this approximant does not support this case.");
+            if( !checkTransverseSpinsZero(S1x, S1y, S2x, S2y) )
+            XLAL_ERROR(XLAL_EINVAL, "Non-zero transverse spins were given, but this is a non-precessing approximant.");
+            
+            if(LALpars)
+            XLALSimInspiralWaveformParamsInsertPhenomXTidalFlag(LALpars,2);
+            
+            /*
+            This is the factor that comes from Y_22star + (-1)^l * Y_2-2 without the dependence in inclination, that is included in pfac and cfac
+            We add the azimuthal part exp^{i*m*beta} of the spherical harmonics Ylm(inclination, beta),
+            with beta = PI/2 - phiRef, phiRef is included in the individual mode
+            */
+            COMPLEX16 Ylmfactor = 2.0*sqrt(5.0 / (64.0 * LAL_PI)) * cexp(-I*2*(LAL_PI/2 ));
+            /* The factor for hc is the same but opposite sign */
+
+            ret = XLALSimIMRPhenomXASFrequencySequence(hptilde, frequencies,
+              m1, m2, S1z, S2z, distance, phiRef, f_ref, LALpars);
+              if (ret == XLAL_FAILURE) XLAL_ERROR(XLAL_EFUNC);
+            
+            if(LALpars)
+            XLALSimInspiralWaveformParamsInsertPhenomXTidalFlag(LALpars,0);
+
+              /* Produce both polarizations */
+              *hctilde = XLALCreateCOMPLEX16FrequencySeries("FD hcross",
+              &((*hptilde)->epoch), (*hptilde)->f0, (*hptilde)->deltaF,
+              &((*hptilde)->sampleUnits), (*hptilde)->data->length
+            );
+            for(j = 0; j < (*hptilde)->data->length; j++)
+            {
+              (*hctilde)->data->data[j] = -I*cfac * (*hptilde)->data->data[j] * Ylmfactor;
+              (*hptilde)->data->data[j] *= pfac * Ylmfactor;
+            }
+            
+        }
+            break;
 
           case IMRPhenomXHM:
     					/* Waveform-specific sanity checks */
@@ -1435,6 +1504,51 @@ int XLALSimInspiralChooseFDWaveformSequence(
 							XLAL_ERROR(XLAL_EFUNC);
 						}
 						break;
+            
+      case IMRPhenomXP_NRTidalv2:
+                /* Waveform-specific sanity checks */
+                if( !XLALSimInspiralWaveformParamsFrameAxisIsDefault(LALpars) )
+                {
+                    /* Default is LAL_SIM_INSPIRAL_FRAME_AXIS_ORBITAL_L : z-axis along direction of orbital angular momentum. */
+                    XLAL_ERROR(XLAL_EINVAL, "Non-default LALSimInspiralFrameAxis provided, but this approximant does not use that flag.");
+                }
+                if(!XLALSimInspiralWaveformParamsModesChoiceIsDefault(LALpars))
+                {
+                    /* Default is (2,2) or l=2 modes. */
+                    XLAL_ERROR(XLAL_EINVAL, "Non-default LALSimInspiralModesChoice provided, but this approximant does not use that flag.");
+                }
+                
+                if(LALpars)
+                XLALSimInspiralWaveformParamsInsertPhenomXTidalFlag(LALpars,2);
+            
+                if(f_ref==0.0)
+                {
+                    /* Default reference frequency is minimum frequency */
+                    f_ref = f_min;
+                }
+
+                /* Call the main waveform driver. Note that we pass the full spin vectors
+                     with XLALSimIMRPhenomXPCalculateModelParametersFromSourceFrame being
+                     effectively called in the initialization of the pPrec struct
+                */
+                ret = XLALSimIMRPhenomXPFrequencySequence(
+                    hptilde, hctilde,
+      frequencies,
+                    m1, m2,
+                    S1x, S1y, S1z,
+                    S2x, S2y, S2z,
+                    distance, inclination,
+                    phiRef, f_ref, LALpars
+                );
+            
+            if(LALpars)
+            XLALSimInspiralWaveformParamsInsertPhenomXTidalFlag(LALpars,0);
+            
+                if (ret == XLAL_FAILURE)
+                {
+                    XLAL_ERROR(XLAL_EFUNC);
+                }
+                break;
 
       case IMRPhenomXPHM:
 					/* Waveform-specific sanity checks */
@@ -1472,6 +1586,82 @@ int XLALSimInspiralChooseFDWaveformSequence(
 					{
 						XLAL_ERROR(XLAL_EFUNC);
 					}
+					break;
+
+      case IMRPhenomXO4a:
+
+                    if (LALpars == NULL){
+                        LALparams_aux = XLALCreateDict();
+                    }
+                    else{
+                        LALparams_aux = XLALDictDuplicate(LALpars);
+                    }
+					/* Waveform-specific sanity checks */
+					if( !XLALSimInspiralWaveformParamsFrameAxisIsDefault(LALparams_aux) )
+					{
+						/* Default is LAL_SIM_INSPIRAL_FRAME_AXIS_ORBITAL_L : z-axis along direction of orbital angular momentum. */
+						XLAL_ERROR(XLAL_EINVAL, "Non-default LALSimInspiralFrameAxis provided, but this approximant does not use that flag.");
+					}
+					if(!XLALSimInspiralWaveformParamsModesChoiceIsDefault(LALparams_aux))
+					{
+						/* Default is (2,2) or l=2 modes. */
+						XLAL_ERROR(XLAL_EINVAL, "Non-default LALSimInspiralModesChoice provided, but this approximant does not use that flag.");
+					}
+					if( !checkTidesZero(lambda1, lambda2) )
+					{
+						XLAL_ERROR(XLAL_EINVAL, "Non-zero tidal parameters were given, but this is approximant doe not have tidal corrections.");
+					}
+					// if(f_ref==0.0)
+					// {
+					// 	/* Default reference frequency is minimum frequency */
+					// 	f_ref = f_min;
+					// }
+
+
+                    /* XO4 uses previous version of XHM */
+                    XLALSimInspiralWaveformParamsInsertPhenomXHMReleaseVersion(LALparams_aux, 122019);
+
+		    
+                    /* Toggle on PNR angles */
+                    if(!XLALDictContains(LALparams_aux, "PNRUseTunedAngles")){
+                        XLALSimInspiralWaveformParamsInsertPhenomXPNRUseTunedAngles(LALparams_aux, 1);
+                    }
+
+                    /* Toggle on tuned coprecessing strain */
+                    if(!XLALDictContains(LALparams_aux, "PNRUseTunedCoprec")){
+                        XLALSimInspiralWaveformParamsInsertPhenomXPNRUseTunedCoprec(LALparams_aux, 1);
+                    }
+                    if(!XLALDictContains(LALparams_aux, "PNRForceXHMAlignment")){
+                        XLALSimInspiralWaveformParamsInsertPhenomXPNRForceXHMAlignment(LALparams_aux, 0);
+                    }
+
+                    /* Toggle on antisymmetric contributions */
+                    if(!XLALDictContains(LALparams_aux, "AntisymmetricWaveform")){
+                        XLALSimInspiralWaveformParamsInsertPhenomXAntisymmetricWaveform(LALparams_aux, 1);
+                    }
+
+                /* Toggle on reviewed PrecVersion */
+                if(!XLALDictContains(LALparams_aux, "PrecVersion")){
+                    XLALSimInspiralWaveformParamsInsertPhenomXPrecVersion(LALparams_aux, 300);
+                }
+
+				ret = XLALSimIMRPhenomXPHMFrequencySequence(
+						hptilde, hctilde,
+            frequencies,
+						m1, m2,
+						S1x, S1y, S1z,
+						S2x, S2y, S2z,
+						distance, inclination,
+						phiRef, f_ref, LALparams_aux
+					);
+
+                    XLALDestroyDict(LALparams_aux);
+
+					if (ret == XLAL_FAILURE)
+					{
+						XLAL_ERROR(XLAL_EFUNC);
+					}
+
 					break;
 
         case IMRPhenomNSBH:

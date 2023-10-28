@@ -27,6 +27,8 @@
 #include <lal/H5FileIO.h>
 #endif
 
+// #include "LALSimIMRSpinEOB.h"
+
 #if defined(__cplusplus)
 extern "C" {
 #elif 0
@@ -49,6 +51,7 @@ extern "C" {
  * @defgroup LALSimIMRSpinPrecEOBv4P_c           LALSimIMRSpinPrecEOBv4P.c
  * @defgroup LALSimIMRSEOBNRROM_c                LALSimIMRSEOBNRvxROMXXX.c
  * @defgroup LALSimIMRSEOBNRHMROM_c              LALSimIMRSEOBNRv4HMROM.c
+ * @defgroup LALSimIMRSEOBNRv5HMROM_c            LALSimIMRSEOBNRv5HMROM.c
  * @defgroup LALSimIMRSEOBNRv2ChirpTime_c        LALSimIMRSEOBNRv2ChirpTime.c
  * @defgroup LALSimIMRPSpinInspiralRD_c          LALSimIMRPSpinInspiralRD.c
  * @defgroup LALSimIMRTidal_c                    LALSimIMRLackeyTidal2013.c
@@ -166,13 +169,61 @@ SphHarmTimeSeries *XLALSimIMREOBNRv2Modes(const REAL8 deltaT, const REAL8 m1, co
 
 double XLALSimIMRSpinAlignedEOBPeakFrequency(REAL8 m1SI, REAL8 m2SI, const REAL8 spin1z, const REAL8 spin2z, UINT4 SpinAlignedEOBversion);
 int XLALSimIMRSpinAlignedEOBWaveform(REAL8TimeSeries **hplus, REAL8TimeSeries **hcross, const REAL8 phiC, REAL8 deltaT, const REAL8 m1SI, const REAL8 m2SI, const REAL8 fMin, const REAL8 r, const REAL8 inc, const REAL8 spin1z, const REAL8 spin2z, UINT4 SpinAlignedEOBversion, LALDict *LALparams);
-int XLALSimIMRSpinAlignedEOBWaveformAll(REAL8TimeSeries **hplus, REAL8TimeSeries **hcross, const REAL8 phiC, REAL8 deltaT, const REAL8 m1SI, const REAL8 m2SI, const REAL8 fMin, const REAL8 r, const REAL8 inc, const REAL8 spin1z, const REAL8 spin2z, UINT4 SpinAlignedEOBversion, const REAL8 lambda2Tidal1, const REAL8 lambda2Tidal2, const REAL8 omega02Tidal1, const REAL8 omega02Tidal2, const REAL8 lambda3Tidal1, const REAL8 lambda3Tidal2, const REAL8 omega03Tidal1, const REAL8 omega03Tidal2, const REAL8 quadparam1, const REAL8 quadparam2, REAL8Vector *nqcCoeffsInput, const INT4 nqcFlag, LALValue *ModeArray);
-int XLALSimIMRSpinAlignedEOBModes(SphHarmTimeSeries ** hlmmode,
-  //SM
-  REAL8Vector ** dynamics_out, /**<< OUTPUT, low-sampling dynamics */
-  REAL8Vector ** dynamicsHi_out, /**<< OUTPUT, high-sampling dynamics */
-  //SM
- REAL8 deltaT, const REAL8 m1SI, const REAL8 m2SI, const REAL8 fMin, const REAL8 r, const REAL8 spin1z, const REAL8 spin2z, UINT4 SpinAlignedEOBversion, const REAL8 lambda2Tidal1, const REAL8 lambda2Tidal2, const REAL8 omega02Tidal1, const REAL8 omega02Tidal2, const REAL8 lambda3Tidal1, const REAL8 lambda3Tidal2, const REAL8 omega03Tidal1, const REAL8 omega03Tidal2, const REAL8 quadparam1, const REAL8 quadparam2, REAL8Vector *nqcCoeffsInput, const INT4 nqcFlag);
+int XLALSimIMRSpinAlignedEOBWaveformAll(
+    REAL8TimeSeries **hplus,
+    REAL8TimeSeries **hcross,
+    const REAL8 phiC,
+    REAL8 deltaT,
+    const REAL8 m1SI,
+    const REAL8 m2SI,
+    const REAL8 fMin,
+    const REAL8 r,
+    const REAL8 inc,
+    const REAL8 spin1z,
+    const REAL8 spin2z,
+    UINT4 SpinAlignedEOBversion,
+    const REAL8 lambda2Tidal1,
+    const REAL8 lambda2Tidal2,
+    const REAL8 omega02Tidal1,
+    const REAL8 omega02Tidal2,
+    const REAL8 lambda3Tidal1,
+    const REAL8 lambda3Tidal2,
+    const REAL8 omega03Tidal1,
+    const REAL8 omega03Tidal2,
+    const REAL8 quadparam1,
+    const REAL8 quadparam2,
+    REAL8Vector *nqcCoeffsInput,
+    const INT4 nqcFlag,
+    LALValue *ModeArray,
+    LALDict *TGRParams
+);
+int XLALSimIMRSpinAlignedEOBModes(
+    SphHarmTimeSeries ** hlmmode, //SM
+    REAL8Vector ** dynamics_out, /**<< OUTPUT, low-sampling dynamics */
+    REAL8Vector ** dynamicsHi_out, /**<< OUTPUT, high-sampling dynamics */ //SM
+    REAL8 deltaT,
+    const REAL8 m1SI,
+    const REAL8 m2SI,
+    const REAL8 fMin,
+    const REAL8 r,
+    const REAL8 spin1z,
+    const REAL8 spin2z,
+    UINT4 SpinAlignedEOBversion,
+    const REAL8 lambda2Tidal1,
+    const REAL8 lambda2Tidal2,
+    const REAL8 omega02Tidal1,
+    const REAL8 omega02Tidal2,
+    const REAL8 lambda3Tidal1,
+    const REAL8 lambda3Tidal2,
+    const REAL8 omega03Tidal1,
+    const REAL8 omega03Tidal2,
+    const REAL8 quadparam1,
+    const REAL8 quadparam2,
+    REAL8Vector *nqcCoeffsInput,
+    const INT4 nqcFlag,
+    LALDict *PAParams,
+    LALDict *TGRParams
+);
 /*int XLALSimIMRSpinEOBWaveform(REAL8TimeSeries **hplus, REAL8TimeSeries **hcross, const REAL8 phiC, const REAL8 deltaT, const REAL8 m1SI, const REAL8 m2SI, const REAL8 fMin, const REAL8 r, const REAL8 inc, const REAL8 spin1[], const REAL8 spin2[]);
  */
 
@@ -370,6 +421,12 @@ int XLALSimIMRSEOBNRv4HMROMFrequencySequence(struct tagCOMPLEX16FrequencySeries 
 int XLALSimIMRSEOBNRv4HMROM_Modes(SphHarmFrequencySeries **hlm, REAL8 phiRef, REAL8 deltaF, REAL8 fLow, REAL8 fHigh, REAL8 fRef, REAL8 distance, REAL8 m1SI, REAL8 m2SI, REAL8 chi1, REAL8 chi2, INT4 nk_max, UINT4 nModes, bool use_hybridization);
 int XLALSimIMRSEOBNRv4HMROMFrequencySequence_Modes(SphHarmFrequencySeries **hlm, const REAL8Sequence *freqs, REAL8 phiRef, REAL8 fRef, REAL8 distance, REAL8 inclination, REAL8 m1SI, REAL8 m2SI, REAL8 chi1, REAL8 chi2, INT4 nk_max, UINT4 nModes, LALDict *LALParams);
 
+/* in module LALSimIMRSEOBNRv5HMROM.c */
+int XLALSimIMRSEOBNRv5HMROM(struct tagCOMPLEX16FrequencySeries **hptilde, struct tagCOMPLEX16FrequencySeries **hctilde, REAL8 phiRef, REAL8 deltaF, REAL8 fLow, REAL8 fHigh, REAL8 fRef, REAL8 distance, REAL8 inclination, REAL8 m1SI, REAL8 m2SI, REAL8 chi1, REAL8 chi2, INT4 nk_max, UINT4 nModes, bool use_hybridization, LALDict *LALParams);
+int XLALSimIMRSEOBNRv5HMROMFrequencySequence(struct tagCOMPLEX16FrequencySeries **hptilde, struct tagCOMPLEX16FrequencySeries **hctilde, const REAL8Sequence *freqs, REAL8 phiRef, REAL8 fRef, REAL8 distance, REAL8 inclination, REAL8 m1SI, REAL8 m2SI, REAL8 chi1, REAL8 chi2, INT4 nk_max, UINT4 nModes, LALDict *LALParams);
+int XLALSimIMRSEOBNRv5HMROM_Modes(SphHarmFrequencySeries **hlm, REAL8 phiRef, REAL8 deltaF, REAL8 fLow, REAL8 fHigh, REAL8 fRef, REAL8 distance, REAL8 m1SI, REAL8 m2SI, REAL8 chi1, REAL8 chi2, INT4 nk_max, UINT4 nModes, bool use_hybridization);
+int XLALSimIMRSEOBNRv5HMROMFrequencySequence_Modes(SphHarmFrequencySeries **hlm, const REAL8Sequence *freqs, REAL8 phiRef, REAL8 fRef, REAL8 distance, REAL8 inclination, REAL8 m1SI, REAL8 m2SI, REAL8 chi1, REAL8 chi2, INT4 nk_max, UINT4 nModes, LALDict *LALParams);
+int XLALSimIMRSEOBNRv5ROMTimeOfFrequency(REAL8 *t, REAL8 frequency, REAL8 m1SI, REAL8 m2SI, REAL8 chi1, REAL8 chi2);
 
 /* in module LALSimIMRSEOBNRv4ROM_NRTidal.c */
 
@@ -479,6 +536,26 @@ int XLALSimIMRPhenomXPPNAngles(
  LALDict *lalParams                        /**< LAL Dictionary struct */
 );
 
+int XLALSimIMRPhenomXPSpinTaylorAngles(
+  REAL8Sequence **alphaFS,              /**< [out] Alpha angle frequency series  */
+  REAL8Sequence **cosbetaFS,            /**< [out]  cos(Beta) angle frequency series */
+  REAL8Sequence **gammaFS,              /**< [out] Gamma angle frequency series */
+  REAL8 m1_SI,                /**< Mass of companion 1 (kg) */
+  REAL8 m2_SI,                /**< Mass of companion 2 (kg) */
+  REAL8 s1x,                /**< x component of primary spin*/
+  REAL8 s1y,                /**< y component of primary spin*/
+  REAL8 s1z,                /**< z component of primary spin */
+  REAL8 s2x,                /**< x component of secondary spin*/
+  REAL8 s2y,                /**< y component of secondary spin*/
+  REAL8 s2z,                /**< z component of secondary spin */
+  REAL8 fmin,               /**< starting GW frequency (Hz) */
+  REAL8 fmax,               /**< maximum GW frequency (Hz) */
+  REAL8 deltaF,             /**< starting GW frequency (Hz) */
+  REAL8 fRef,               /**< reference GW frequency (Hz) */
+  REAL8 phiRef,               /**< reference orbital phase (rad) */
+  LALDict *LALparams        /**< LAL Dictionary struct */
+);
+
 int XLALSimIMRPhenomXPGenerateFD(
   COMPLEX16FrequencySeries **hptilde,         /**< [out] Frequency-domain waveform h+ */
   COMPLEX16FrequencySeries **hctilde,         /**< [out] Frequency-domain waveform hx */
@@ -499,6 +576,16 @@ int XLALSimIMRPhenomXPGenerateFD(
   REAL8 fRef_In,                              /**< Reference frequency (Hz) */
   LALDict *lalParams                          /**< LAL Dictionary struct */
 );
+
+/* ~~~~~~~~~~ PNR Related ~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
+REAL8 XLALSimPhenomPNRfRingEff(  REAL8 m1_SI, REAL8 m2_SI, REAL8 chi1x, REAL8 chi1y, REAL8 chi1z, REAL8 chi2x, REAL8 chi2y, REAL8 chi2z, LALDict *lalParams );
+REAL8 XLALSimPhenomPNRafinal(  REAL8 m1_SI, REAL8 m2_SI, REAL8 chi1x, REAL8 chi1y, REAL8 chi1z, REAL8 chi2x, REAL8 chi2y, REAL8 chi2z, LALDict *lalParams );
+REAL8 XLALSimPhenomPNRafinal_prec(  REAL8 m1_SI, REAL8 m2_SI, REAL8 chi1x, REAL8 chi1y, REAL8 chi1z, REAL8 chi2x, REAL8 chi2y, REAL8 chi2z, LALDict *lalParams );
+REAL8 XLALSimPhenomPNRafinal_nonprec(  REAL8 m1_SI, REAL8 m2_SI, REAL8 chi1x, REAL8 chi1y, REAL8 chi1z, REAL8 chi2x, REAL8 chi2y, REAL8 chi2z, LALDict *lalParams );
+REAL8 XLALSimPhenomPNRwindow(  REAL8 m1_SI, REAL8 m2_SI, REAL8 chi1x, REAL8 chi1y, REAL8 chi1z, REAL8 chi2x, REAL8 chi2y, REAL8 chi2z, LALDict *lalParams );
+REAL8 XLALSimPhenomPNRfRINGEffShiftDividedByEmm(  REAL8 m1_SI, REAL8 m2_SI, REAL8 chi1x, REAL8 chi1y, REAL8 chi1z, REAL8 chi2x, REAL8 chi2y, REAL8 chi2z, LALDict *lalParams );
+REAL8 XLALSimPhenomPNRbetaRD(  REAL8 m1_SI, REAL8 m2_SI, REAL8 chi1x, REAL8 chi1y, REAL8 chi1z, REAL8 chi2x, REAL8 chi2y, REAL8 chi2z, LALDict *lalParams );
+/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
 int XLALSimIMRPhenomXPFrequencySequence(
   COMPLEX16FrequencySeries **hptilde,         /**< [out] Frequency-domain waveform h+ */
@@ -675,6 +762,37 @@ int XLALSimIMRPhenomXHMAmplitude(
       LALDict *lalParams                   /**< Extra params */
   );
 
+
+int XLALSimIMRPhenomXHM_SpheroidalPhase(
+  REAL8Sequence **phase, /**< [out] FD waveform */
+  const REAL8Sequence *freqs_In,                /**< frequency array to evaluate model (positives) */
+  UINT4 ell,                           /**< l index of the mode */
+  INT4 emm,                            /**< m index of the mode */
+  REAL8 m1_SI,                         /**< Mass of companion 1 (kg) */
+  REAL8 m2_SI,                         /**< Mass of companion 2 (kg) */
+  REAL8 chi1L,                         /**< Dimensionless aligned spin of companion 1 */
+  REAL8 chi2L,                         /**< Dimensionless aligned spin of companion 2 */
+  REAL8 distance,                      /**< Luminosity distance (m) */
+  REAL8 phiRef,                        /**< Orbital phase at fRef (rad) */
+  REAL8 fRef_In,                       /**< Reference frequency (Hz) */
+  LALDict *lalParams                   /**< UNDOCUMENTED */
+);
+
+int XLALSimIMRPhenomXHM_SpheroidalAmplitude(
+  REAL8Sequence **amp, /**< [out] FD waveform */
+  const REAL8Sequence *freqs_In,                /**< frequency array to evaluate model (positives) */
+  UINT4 ell,                           /**< l index of the mode */
+  INT4 emm,                            /**< m index of the mode */
+  REAL8 m1_SI,                         /**< Mass of companion 1 (kg) */
+  REAL8 m2_SI,                         /**< Mass of companion 2 (kg) */
+  REAL8 chi1L,                         /**< Dimensionless aligned spin of companion 1 */
+  REAL8 chi2L,                         /**< Dimensionless aligned spin of companion 2 */
+  REAL8 distance,                      /**< Luminosity distance (m) */
+  REAL8 phiRef,                        /**< Orbital phase at fRef (rad) */
+  REAL8 fRef_In,                       /**< Reference frequency (Hz) */
+  LALDict *lalParams                   /**< UNDOCUMENTED */
+);
+
 int XLALSimIMRPhenomXPHM(
   COMPLEX16FrequencySeries **hptilde,         /**< [out] Frequency-domain waveform h+ */
   COMPLEX16FrequencySeries **hctilde,         /**< [out] Frequency-domain waveform hx */
@@ -845,6 +963,146 @@ int XLALSimIMRPhenomXPCalculateModelParametersFromSourceFrame(
     LALDict *lalParams                /**< LAL Dictionary */
 );
 
+int XLALSimIMRPhenomX_PNR_GeneratePNRAngles(
+  REAL8Sequence **alphaPNR,           /**< [out] alpha angle series */
+  REAL8Sequence **betaPNR,            /**< [out] beta angle series */
+  REAL8Sequence **gammaPNR,           /**< [out] gamma angle series */
+  REAL8Sequence **freqs,              /**< [out] frequency series */
+  REAL8 *alphaPNR_ref,                /**< alpha angle at reference frequency */
+  REAL8 *gammaPNR_ref,                /**< gamma angle at reference frequency */
+  REAL8 m1_SI,                        /**< mass of companion 1 (kg) */
+  REAL8 m2_SI,                        /**< mass of companion 2 (kg) */
+  REAL8 chi1x,                        /**< x-component of the dimensionless spin of object 1 w.r.t. Lhat = (0,0,1) */
+  REAL8 chi1y,                        /**< y-component of the dimensionless spin of object 1 w.r.t. Lhat = (0,0,1) */
+  REAL8 chi1z,                        /**< z-component of the dimensionless spin of object 1 w.r.t. Lhat = (0,0,1) */
+  REAL8 chi2x,                        /**< x-component of the dimensionless spin of object 2 w.r.t. Lhat = (0,0,1) */
+  REAL8 chi2y,                        /**< y-component of the dimensionless spin of object 2 w.r.t. Lhat = (0,0,1) */
+  REAL8 chi2z,                        /**< z-component of the dimensionless spin of object 2 w.r.t. Lhat = (0,0,1) */
+  REAL8 inclination,                  /**< Inclination : angle between LN and the line of sight */
+  REAL8 deltaF,                       /**< frequency spacing (Hz) */
+  REAL8 f_min,                        /**< Starting GW frequency (Hz) */
+  REAL8 f_max,                        /**< Ending GW frequency (Hz); Defaults to Mf = 0.3 if no f_max is specified. */
+  REAL8 fRef_In,                      /**< Reference frequency (Hz) */
+  LALDict *lalParams                  /**< LAL Dictionary struct */
+);
+
+int XLALSimIMRPhenomX_PNR_GeneratePNRAnglesHM(
+    REAL8Sequence **alphaPNR, /**< [out] alpha angle series */
+    REAL8Sequence **betaPNR, /**< [out] beta angle series */
+    REAL8Sequence **gammaPNR, /**< [out] gamma angle series */
+    REAL8Sequence **freqs, /**< [out] frequency series */
+    REAL8 *alphaPNR_ref, /**< alpha angle at reference frequency */
+    REAL8 *gammaPNR_ref, /**< gamma angle at reference frequency */
+    REAL8 m1_SI, /**< mass of companion 1 (kg) */
+    REAL8 m2_SI, /**< mass of companion 2 (kg) */
+    REAL8 chi1x, /**< x-component of the dimensionless spin of object 1 w.r.t. Lhat = (0,0,1) */
+    REAL8 chi1y, /**< y-component of the dimensionless spin of object 1 w.r.t. Lhat = (0,0,1) */
+    REAL8 chi1z, /**< z-component of the dimensionless spin of object 1 w.r.t. Lhat = (0,0,1) */
+    REAL8 chi2x, /**< x-component of the dimensionless spin of object 2 w.r.t. Lhat = (0,0,1) */
+    REAL8 chi2y, /**< y-component of the dimensionless spin of object 2 w.r.t. Lhat = (0,0,1) */
+    REAL8 chi2z, /**< z-component of the dimensionless spin of object 2 w.r.t. Lhat = (0,0,1) */
+    REAL8 inclination, /**< Inclination : angle between LN and the line of sight */
+    REAL8 deltaF,  /**< frequency spacing (Hz) */
+    REAL8 f_min,   /**< Starting GW frequency (Hz) */
+    REAL8 f_max,   /**< Ending GW frequency (Hz); Defaults to Mf = 0.3 if no f_max is specified. */
+    REAL8 fRef_In, /**< Reference frequency (Hz) */
+    INT4 ell,      /**< First index of the (l,m) mode */
+    INT4 emmprime, /**< Second index of the (l,m) mode */
+    LALDict *lalParams /**< LAL Dictionary struct */
+);
+
+  int XLALSimIMRPhenomX_PNR_InterpolationDeltaF(
+    INT4 *twospin,/**< Tell if the system is double spin */
+    INT4 *precversion,/**< precessing version */
+    REAL8 *deltaF,/**< frequency spacing (Hz) */
+    REAL8 m1_SI, /**< mass of companion 1 (kg) */
+    REAL8 m2_SI, /**< mass of companion 2 (kg) */
+    REAL8 chi1x, /**< x-component of the dimensionless spin of object 1 w.r.t. Lhat = (0,0,1) */
+    REAL8 chi1y, /**< y-component of the dimensionless spin of object 1 w.r.t. Lhat = (0,0,1) */
+    REAL8 chi1z, /**< z-component of the dimensionless spin of object 1 w.r.t. Lhat = (0,0,1) */
+    REAL8 chi2x, /**< x-component of the dimensionless spin of object 2 w.r.t. Lhat = (0,0,1) */
+    REAL8 chi2y, /**< y-component of the dimensionless spin of object 2 w.r.t. Lhat = (0,0,1) */
+    REAL8 chi2z, /**< z-component of the dimensionless spin of object 2 w.r.t. Lhat = (0,0,1) */
+    REAL8 f_min, /**< Starting GW frequency (Hz) */
+    REAL8 f_max, /**< Ending GW frequency (Hz); Defaults to Mf = 0.3 if no f_max is specified. */
+    REAL8 fRef,  /**< Reference frequency (Hz) */
+    LALDict *lalParams /**< LAL Dictionary struct */);
+
+REAL8 XLALSimIMRPhenomX_PNR_GenerateEffectiveRingdownFreq(
+    REAL8 m1_SI,                        /**< mass of companion 1 (kg) */
+    REAL8 m2_SI,                        /**< mass of companion 2 (kg) */
+    REAL8 chi1x,                        /**< x-component of the dimensionless spin of object 1 w.r.t. Lhat = (0,0,1) */
+    REAL8 chi1y,                        /**< y-component of the dimensionless spin of object 1 w.r.t. Lhat = (0,0,1) */
+    REAL8 chi1z,                        /**< z-component of the dimensionless spin of object 1 w.r.t. Lhat = (0,0,1) */
+    REAL8 chi2x,                        /**< x-component of the dimensionless spin of object 2 w.r.t. Lhat = (0,0,1) */
+    REAL8 chi2y,                        /**< y-component of the dimensionless spin of object 2 w.r.t. Lhat = (0,0,1) */
+    REAL8 chi2z,                        /**< z-component of the dimensionless spin of object 2 w.r.t. Lhat = (0,0,1) */
+    REAL8 f_min,                        /**< Starting GW frequency (Hz) */
+    REAL8 f_max,                        /**< Ending GW frequency (Hz); Defaults to Mf = 0.3 if no f_max is specified. */
+    REAL8 fRef,                         /**< Reference frequency (Hz) */
+    UINT4 ell,                          /**< First index of the (l,m) mode */
+    UINT4 emmprime,                     /**< Second index of the (l,m) mode */
+    LALDict *lalParams                  /**< LAL Dictionary struct */
+  );
+
+  REAL8 XLALSimIMRPhenomX_PNR_GenerateRingdownPNRBeta(
+      REAL8 m1_SI, /**< mass of companion 1 (kg) */
+      REAL8 m2_SI, /**< mass of companion 2 (kg) */
+      REAL8 chi1x, /**< x-component of the dimensionless spin of object 1 w.r.t. Lhat = (0,0,1) */
+      REAL8 chi1y, /**< y-component of the dimensionless spin of object 1 w.r.t. Lhat = (0,0,1) */
+      REAL8 chi1z, /**< z-component of the dimensionless spin of object 1 w.r.t. Lhat = (0,0,1) */
+      REAL8 chi2x, /**< x-component of the dimensionless spin of object 2 w.r.t. Lhat = (0,0,1) */
+      REAL8 chi2y, /**< y-component of the dimensionless spin of object 2 w.r.t. Lhat = (0,0,1) */
+      REAL8 chi2z, /**< z-component of the dimensionless spin of object 2 w.r.t. Lhat = (0,0,1) */
+      REAL8 deltaF, /**< frequency spacing (Hz) */
+      REAL8 f_min,   /**< Starting GW frequency (Hz) */
+      REAL8 f_max,   /**< Ending GW frequency (Hz); Defaults to Mf = 0.3 if no f_max is specified. */
+      REAL8 fRef_In, /**< Reference frequency (Hz) */
+      LALDict *lalParams /**< LAL Dictionary struct */
+  );
+
+
+int XLALSimIMRPhenomX_PNR_GenerateAntisymmetricWaveform(
+      REAL8Sequence **antisymamp,  /**< antisymmetric to symmetric waveform amplitude */
+      REAL8Sequence **antisymphase,  /**< antisymmetric to symmetric waveform phase */
+      REAL8 m1_SI,              /**< mass of companion 1 (kg) */
+      REAL8 m2_SI,              /**< mass of companion 2 (kg) */
+      REAL8 chi1x,              /**< x-component of the dimensionless spin of object 1 w.r.t. Lhat = (0,0,1) */
+      REAL8 chi1y,              /**< y-component of the dimensionless spin of object 1 w.r.t. Lhat = (0,0,1) */
+      REAL8 chi1z,              /**< z-component of the dimensionless spin of object 1 w.r.t. Lhat = (0,0,1) */
+      REAL8 chi2x,              /**< x-component of the dimensionless spin of object 2 w.r.t. Lhat = (0,0,1) */
+      REAL8 chi2y,              /**< y-component of the dimensionless spin of object 2 w.r.t. Lhat = (0,0,1) */
+      REAL8 chi2z,              /**< z-component of the dimensionless spin of object 2 w.r.t. Lhat = (0,0,1) */
+      REAL8 distance,           /**< Luminosity distance (m) */
+      REAL8 inclination,        /**< Angle between orbital angular momentum and line-of-sight vector at reference frequency (rad) */
+      REAL8 deltaF,             /**< Frequency spacing (Hz) */
+      REAL8 f_min,              /**< Starting GW frequency (Hz) */
+      REAL8 f_max,              /**< Ending GW frequency (Hz) */
+      REAL8 fRef_In,            /**< Reference frequency (Hz) */
+      REAL8 phiRef,             /**< phase at reference frequency (Hz) */
+      LALDict *lalParams        /**< LAL Dictionary struct */
+  );
+
+int XLALSimIMRPhenomX_PNR_GenerateAntisymmetricAmpRatio(
+  REAL8Sequence **kappa,    /**< antisymmetric to symmetric waveform amplitude ratio*/
+  REAL8Sequence **freqs,    /**< [out] Frequency array (Hz) */
+  REAL8 m1_SI,              /**< mass of companion 1 (kg) */
+  REAL8 m2_SI,              /**< mass of companion 2 (kg) */
+  REAL8 chi1x,              /**< x-component of the dimensionless spin of object 1 w.r.t. Lhat = (0,0,1) */
+  REAL8 chi1y,              /**< y-component of the dimensionless spin of object 1 w.r.t. Lhat = (0,0,1) */
+  REAL8 chi1z,              /**< z-component of the dimensionless spin of object 1 w.r.t. Lhat = (0,0,1) */
+  REAL8 chi2x,              /**< x-component of the dimensionless spin of object 2 w.r.t. Lhat = (0,0,1) */
+  REAL8 chi2y,              /**< y-component of the dimensionless spin of object 2 w.r.t. Lhat = (0,0,1) */
+  REAL8 chi2z,              /**< z-component of the dimensionless spin of object 2 w.r.t. Lhat = (0,0,1) */
+  REAL8 inclination,        /**< Angle between orbital angular momentum and line-of-sight vector at reference frequency (rad) */
+  REAL8 deltaF,             /**< Frequency spacing (Hz) */
+  REAL8 f_min,              /**< Starting GW frequency (Hz) */
+  REAL8 f_max,              /**< Ending GW frequency (Hz) */
+  REAL8 fRef_In,            /**< Reference frequency (Hz) */
+  LALDict *lalParams        /**< LAL Dictionary struct */
+);
+
+
 /* IMRPhenomT/HM Routines */
 /* in module LALSimIMRPhenomTHM.c */
 
@@ -874,7 +1132,7 @@ int XLALSimIMRPhenomTHM(
   REAL8 fmin,           /**< starting GW frequency (Hz) */
   REAL8 fRef,           /**< reference GW frequency (Hz) */
   REAL8 phiRef,         /**< reference orbital phase (rad) */
-  LALDict *lalparams  /**< LAL dictionary containing accessory parameters */
+  LALDict *lalparams    /**< LAL dictionary containing accessory parameters */
   );
 
 int XLALSimIMRPhenomT(
@@ -1048,6 +1306,7 @@ int XLALSimIMRPhenomTPHM_CoprecModes(
   LALDict *lalParams,       /**< LAL dictionary containing accessory parameters */
   UINT4 only22              /**< Flag for calling only IMRPhenomTP (dominant 22 coprec mode only) */
   );
+
 
 /* in module LALSimIMRTEOBResumS.c */
 
@@ -1242,6 +1501,8 @@ double XLALSimNRTunedTidesMergerFrequency(
     const REAL8 kappa2T,   /**< tidal coupling constant. Eq. 2 in arXiv:1706.02969 */
     const REAL8 q          /**< mass-ratio q >= 1 */
 );
+
+int XLALSimNRTunedTidesSetFDTidalPhase_v2_Coeffs(REAL8 *NRTidalv2_coeffs);
 
 int XLALSimNRTunedTidesFDTidalAmplitudeFrequencySeries(
     const REAL8Sequence *amp_tidal, /**< [out] tidal amplitude frequency series */

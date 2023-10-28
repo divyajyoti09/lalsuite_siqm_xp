@@ -48,7 +48,7 @@ extern "C" {
 
 #include <lal/FrequencySeries.h>
 #include <lal/LALSimInspiral.h>
-
+#include <gsl/gsl_spline.h>
 
 /**
  * Tolerance used below which numbers are treated as zero for the calculation of atan2
@@ -71,11 +71,58 @@ typedef struct tagsphpolvector
     double phi;   // phi-component
 } sphpolvector;
 
+/* MRD angles utilities */
+typedef struct tagPhenomXPbetaMRD
+          {
+              double aRD;
+              double bRD;
+              double cRD;
+              double dRD;
+              double cosbeta_sign;
+              bool flat_RD;
+              double dfdamp;
+         
+          } PhenomXPbetaMRD;
+
+typedef struct tagPhenomXPalphaMRD
+          {
+              double aRD;
+              double bRD;
+              double cRD;
+         
+          } PhenomXPalphaMRD;
+
+typedef struct tagPhenomXPInspiralArrays{
+
+            REAL8TimeSeries *V_PN;
+            REAL8TimeSeries *S1x_PN;
+            REAL8TimeSeries *S1y_PN;
+            REAL8TimeSeries *S1z_PN;
+            REAL8TimeSeries *S2x_PN;
+            REAL8TimeSeries *S2y_PN;
+            REAL8TimeSeries *S2z_PN;
+            REAL8TimeSeries *LNhatx_PN;
+            REAL8TimeSeries *LNhaty_PN;
+            REAL8TimeSeries *LNhatz_PN;
+} PhenomXPInspiralArrays;
+
 /* Struct to store all precession relevant variables */
 typedef struct tagIMRPhenomXPrecessionStruct
 {
         /* Flag to define the version of IMRPhenomXP called */
         INT4 IMRPhenomXPrecVersion; /**< Flag to set version of Euler angles used. */
+
+        /* Toggle to return coprecessing model without any twisting up */
+        INT4 IMRPhenomXReturnCoPrec;
+
+        // /* Parameters that define deviation of the tuned coprecessing mode PhenomXCP from PhenomX */
+        // REAL8 MU2;   // MR Amplitude
+        // REAL8 MU3;   // MR Amplitude
+        // REAL8 MU4;   // MR Amplitude
+        // REAL8 NU4;   // MR Phase
+        // REAL8 NU5;   // MR Phase
+        // REAL8 NU6;   // MR Phase
+        // REAL8 ZETA2; // INT Phase
 
         /* Debug flag */
         INT4 debug_prec; /**< Set debugging level. */
@@ -376,8 +423,73 @@ typedef struct tagIMRPhenomXPrecessionStruct
         REAL8 LPN_coefficients[6];
 
         REAL8 constants_L[5];
-
+       
+        // Variables to interpolate SpinTaylor angles, up to fmax_angles
+        gsl_spline *alpha_spline;
+        gsl_spline *cosbeta_spline;
+        gsl_spline *gamma_spline;
+    
+        gsl_interp_accel *alpha_acc;
+        gsl_interp_accel *cosbeta_acc;
+        gsl_interp_accel *gamma_acc;
+        
+        REAL8 Mfmax_angles;
+        REAL8 alpha_ref;
+        REAL8 gamma_ref;
+        REAL8 alpha_ftrans; /**< Record value of alpha at end of inspiral, used in IMRPhenomXPHMTwistUp and IMRPhenomXPHMTwistUpOneMode */
+        REAL8 cosbeta_ftrans; /**< Record value of cosbeta at end of inspiral, used in IMRPhenomXPHMTwistUp and IMRPhenomXPHMTwistUpOneMode */
+        REAL8 gamma_ftrans; /**< Record value of gamma at end of inspiral, used in IMRPhenomXPHMTwistUp and IMRPhenomXPHMTwistUpOneMode */
+        REAL8 gamma_in; /**< Record last value of gamma, used in IMRPhenomXPHMTwistUp and IMRPhenomXPHMTwistUpOneMode */
+        PhenomXPalphaMRD *alpha_params; /**< Parameters needed for analytical MRD continuation of alpha */
+        PhenomXPbetaMRD *beta_params; /**< Parameters needed for analytical MRD continuation of cosbeta */
+        REAL8 ftrans_MRD;
+        REAL8 fmax_inspiral;
+        INT4 precessing_tag;
+        REAL8 deltaf_interpolation;
+        INT4 M_MIN;
+        INT4 M_MAX;
+        PhenomXPInspiralArrays *PNarrays;
+   
         INT4 MSA_ERROR; /**< Flag to track errors in initialization of MSA system. */
+
+        /* PNR-specific additions for single-spin mapping */
+        REAL8 chi_singleSpin; /**< Magnitude of effective single spin used for tapering two-spin angles, Eq. 18 of arXiv:2107.08876 */
+        REAL8 costheta_singleSpin; /**< Polar angle of effective single spin, Eq. 19 or arXiv:2107.08876 */
+        REAL8 costheta_final_singleSpin; /**< Polar angle of approximate final spin, see technical document FIXME: add reference */
+
+        REAL8 chi_singleSpin_antisymmetric; /**< magnitude of effective single spin of a two spin system for the antisymmetric waveform */
+        REAL8 theta_antisymmetric; /**< Polar angle effective single spin for antisymmetric waveform */
+
+        REAL8 PNR_HM_Mflow; /**< Mf_alpha_lower stored from alphaParams struct, 2 A4 / 7 from arXiv:2107.08876 */
+        REAL8 PNR_HM_Mfhigh; /**< Mf_beta_lower stored from betaParams struct, Eq. 58 from arXiv:2107.08876 */
+        REAL8 PNR_q_window_lower; /**< Boundary values for PNR angle transition window */
+        REAL8 PNR_q_window_upper;
+        REAL8 PNR_chi_window_lower;
+        REAL8 PNR_chi_window_upper;
+        UINT4 PNRInspiralScaling; /**< Enforce inpsiral scaling for HM angles outside of calibration window */
+
+        /* Store PNR-specific waveform flags for turning on and off tuning */
+        INT4 IMRPhenomXPNRUseTunedAngles;
+        INT4 IMRPhenomXPNRUseTunedCoprec;
+        INT4 IMRPhenomXPNRUseTunedCoprec33;
+        INT4 IMRPhenomXPNRUseInputCoprecDeviations;
+        INT4 IMRPhenomXPNRForceXHMAlignment;
+        INT4 APPLY_PNR_DEVIATIONS;
+
+        /* A copy of the XAS 22 object */
+        IMRPhenomXWaveformStruct *pWF22AS;
+        REAL8 IMRPhenomXPNRInterpTolerance;
+
+        /* Store anti-symmetric waveform flag for turning on and off */
+        INT4 IMRPhenomXAntisymmetricWaveform;
+
+       /* polarization symmetry property, refer to XXXX.YYYYY for details */
+        REAL8 PolarizationSymmetry;
+
+        /* variables to store PNR angles for use in existing XP and XPHM twist-up functions */
+        REAL8 alphaPNR;
+        REAL8 betaPNR;
+        REAL8 gammaPNR;
 
 } IMRPhenomXPrecessionStruct;
 
@@ -434,7 +546,6 @@ int IMRPhenomXPTwistUp22(
   COMPLEX16 *hp,                             /**< [out] h_+ polarization \f$\tilde h_+\f$ */
   COMPLEX16 *hc                              /**< [out] h_x polarization \f$\tilde h_x\f$ */
 );
-
 
 /* ~~~~~~~~~~ NNLO post-Newtonian Euler Angles ~~~~~~~~~~ */
 REAL8 XLALSimIMRPhenomXPNEuleralphaNNLO(
@@ -546,6 +657,45 @@ REAL8 IMRPhenomX_Cartesian_to_SphericalPolar_phi(const double x, const double y,
 void IMRPhenomX_CartesianToPolar(REAL8 *polar,REAL8 *azimuthal,REAL8 *magnitude,REAL8 x,REAL8 y,REAL8 z);
 vector IMRPhenomXCreateSphere(const double r, const double th, const double ph);
 
+/* Function to set remnant quantities related to final
+spin within IMRPhenomXGetAndSetPrecessionVariables */
+INT4 IMRPhenomX_SetPrecessingRemnantParams(
+  IMRPhenomXWaveformStruct *pWF,
+  IMRPhenomXPrecessionStruct *pPrec,
+  LALDict *lalParams
+);
+/* twisting-up functions via precomputed angles*/
+int IMRPhenomXPTwistUp22_NumericalAngles(const COMPLEX16 hAS, REAL8 alpha, REAL8 cos_beta,REAL8 gamma,IMRPhenomXPrecessionStruct *pPrec,COMPLEX16 *hp,COMPLEX16 *hc);
+int IMRPhenomXPSpinTaylorAnglesIMR(REAL8Sequence **alphaFS,REAL8Sequence **cosbetaFS,REAL8Sequence **gammaFS,REAL8Sequence *freqsIN,IMRPhenomXWaveformStruct *pWF,IMRPhenomXPrecessionStruct *pPrec,LALDict *LALparams);
+int IMRPhenomX_InterpolateAlphaBeta_SpinTaylor(IMRPhenomXWaveformStruct *pWF,IMRPhenomXPrecessionStruct *pPrec,LALDict *LALparams);
+/* function to evaluate spline for Euler angle gamma --used in SpinTaylor precessing version */
+int IMRPhenomX_InterpolateGamma_SpinTaylor(REAL8 fmin, REAL8 fmax,IMRPhenomXWaveformStruct *pWF,IMRPhenomXPrecessionStruct *pPrec);
+/* wrapper of IMRPhenomX_InterpolateAlphaBeta_SpinTaylor and SpinTaylorGammaSpline */
+int IMRPhenomX_SpinTaylorAnglesSplinesAll(REAL8 fmin,REAL8 fmax, IMRPhenomXWaveformStruct *pWF,IMRPhenomXPrecessionStruct *pPrec,LALDict *LALparams);
+int IMRPhenomX_InspiralAngles_SpinTaylor(
+            PhenomXPInspiralArrays *arrays, /**< [out] Struct containing solutions returned by PNEvolveOrbit   */
+            REAL8 chi1x,   /**< x-component of the dimensionless spin of object 1 w.r.t. Lhat = (0,0,1) at fRef */
+            REAL8 chi1y,   /**< y-component of the dimensionless spin of object 1 w.r.t. Lhat = (0,0,1) at fRef */
+            REAL8 chi1z,   /**< z-component of the dimensionless spin of object 1 w.r.t. Lhat = (0,0,1) at fRef */
+            REAL8 chi2x,   /**< x-component of the dimensionless spin of object 2 w.r.t. Lhat = (0,0,1) at fRef */
+            REAL8 chi2y,   /**< y-component of the dimensionless spin of object 2 w.r.t. Lhat = (0,0,1) at fRef */
+            REAL8 chi2z,   /**< z-component of the dimensionless spin of object 2 w.r.t. Lhat = (0,0,1) at fRef */
+            REAL8 fmin,    /**< minimum frequency  */
+            int PrecVersion, /**< precessing version (int) */
+            IMRPhenomXWaveformStruct *pWF,        /**< Waveform structure [in]*/
+            LALDict *LALparams        /**< LAL Dictionary struct */
+            );
+
+int IMRPhenomX_Initialize_Euler_Angles(IMRPhenomXWaveformStruct *pWF,IMRPhenomXPrecessionStruct *pPrec,LALDict *lalParams);
+void IMRPhenomX_GetandSetModes(LALValue *ModeArray,IMRPhenomXPrecessionStruct *pPrec);
+
+int betaMRD_coeff(gsl_spline spline_cosb, gsl_interp_accel accel_cosb, double fmaxPN, IMRPhenomXWaveformStruct *pWF, IMRPhenomXPrecessionStruct *pPrec);
+double betaMRD(double Mf, IMRPhenomXWaveformStruct *pWF,PhenomXPbetaMRD *beta_params);
+
+int alphaMRD_coeff(gsl_spline spline_alpha, gsl_interp_accel accel_alpha, double fmaxPN, IMRPhenomXWaveformStruct *pWF, PhenomXPalphaMRD *alpha_params);
+double alphaMRD(double Mf, PhenomXPalphaMRD *alpha_params);
+double dalphaMRD(double Mf, PhenomXPalphaMRD *alpha_params);
+int gamma_from_alpha_cosbeta(double *gamma, double Mf, double deltaMf,IMRPhenomXWaveformStruct *pWF,IMRPhenomXPrecessionStruct *pPrec);
 
 
 #ifdef __cplusplus

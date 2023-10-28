@@ -1,5 +1,5 @@
 AC_PREREQ([2.63])
-AC_INIT([LALInspiral],[4.0.0.1],[lal-discuss@ligo.org])
+AC_INIT([LALInspiral],[4.0.4.1],[lal-discuss@ligo.org])
 AC_CONFIG_HEADERS([lib/config.h lib/LALInspiralConfig.h])
 AC_CONFIG_SRCDIR([lib/LALInspiral.h])
 AC_CONFIG_AUX_DIR([gnuscripts])
@@ -37,7 +37,6 @@ AC_CONFIG_FILES([ \
   debian/control \
   debian/liblalinspiral${LIBMAJOR}.install:debian/liblalinspiral.install.in \
   doxygen/Makefile \
-  doxygen/doxygen.cfg \
   include/Makefile \
   include/lal/Makefile \
   lalinspiral.pc \
@@ -69,10 +68,10 @@ AM_INIT_AUTOMAKE([ \
 ])
 
 # version requirements
-MIN_LAL_VERSION="7.3.0"
+MIN_LAL_VERSION="7.4.0"
 MIN_LALFRAME_VERSION="3.0.0"
 MIN_LALMETAIO_VERSION="4.0.0"
-MIN_LALSIMULATION_VERSION="5.0.0"
+MIN_LALSIMULATION_VERSION="5.3.0"
 MIN_LALBURST_VERSION="2.0.0"
 AC_SUBST([MIN_LAL_VERSION])
 AC_SUBST([MIN_LALFRAME_VERSION])
@@ -87,6 +86,7 @@ LALSUITE_ARG_VAR
 LALSUITE_CHECK_PLATFORM
 LALSUITE_CHECK_GIT_REPO
 LALSUITE_DISTCHECK_CONFIGURE_FLAGS
+LALSUITE_WITH_FALLBACK_DATA_PATH
 
 # nightly build
 LALSUITE_ENABLE_NIGHTLY
@@ -174,7 +174,6 @@ LALSUITE_ADD_GCC_FLAGS
 AC_SUBST([LDADD], ["\$(top_builddir)/lib/liblalinspiral.la"])
 
 # add extra preprocessor flags
-AM_CPPFLAGS="-DPKG_DATA_DIR='\"\$(pkgdatadir)/\"' ${AM_CPPFLAGS}"
 AM_CPPFLAGS="-I\$(top_builddir)/include ${AM_CPPFLAGS}"
 
 # force headers to be installed in ${includedir}/lal, ignoring library name

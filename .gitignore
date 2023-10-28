@@ -2,6 +2,7 @@
 .DS_Store
 .idea
 .hypothesis/
+.ipynb_checkpoints/
 .vscode
 *.dSYM
 *.egg-info
@@ -13,7 +14,20 @@ __pycache__/
 /.config/
 /_build/
 /_inst/
-/index.html
+/AUTHORS
+/doxygen/*.log
+/doxygen/Makefile
+/doxygen/Makefile.in
+/doxygen/autogen.dox
+/doxygen/doxygen.cfg
+/doxygen/doxygen_header.html
+/doxygen/doxygen_objdb_*.tmp
+/doxygen/doxygen_sqlite3.db
+/doxygen/filter
+/doxygen/in/
+/doxygen/make_autogen_dox
+/doxygen/out/
+/doxygen/test_doxygen.*
 /lalsuite-*/
 /lalsuiterc
 /Makefile
@@ -47,3 +61,5 @@ TAGS
 .pytest_cache
 test_python_imports.py
 test_python_scripts.py
+lalsimulation/python/lalsimulation/gwsignal/docs/build/
+lalsimulation/python/lalsimulation/gwsignal/docs/source/api/

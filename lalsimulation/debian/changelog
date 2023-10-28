@@ -1,3 +1,33 @@
+lalsimulation (5.3.1-1) unstable; urgency=low
+
+  * Update for 5.3.1
+
+ -- Adam Mercer <adam.mercer@ligo.org>  Mon, 23 Oct 2023 09:38:02 -0700
+
+lalsimulation (5.3.0-1) unstable; urgency=low
+
+  * Update for 5.3.0
+
+ -- Adam Mercer <adam.mercer@ligo.org>  Fri, 06 Oct 2023 12:47:14 -0700
+
+lalsimulation (5.2.1-1) unstable; urgency=low
+
+  * Update for 5.2.1
+
+ -- Adam Mercer <adam.mercer@ligo.org>  Mon, 10 Jul 2023 10:44:28 -0700
+
+lalsimulation (5.2.0-1) unstable; urgency=low
+
+  * Update for 5.2.0
+
+ -- Adam Mercer <adam.mercer@ligo.org>  Mon, 24 Apr 2023 11:02:42 -0700
+
+lalsimulation (5.1.0-1) unstable; urgency=low
+
+  * update for 5.1.0
+
+ -- Adam Mercer <adam.mercer@ligo.org>  Thu, 06 Apr 2023 15:42:10 -0700
+
 lalsimulation (5.0.0-1) unstable; urgency=low
 
   * update for 5.0.0

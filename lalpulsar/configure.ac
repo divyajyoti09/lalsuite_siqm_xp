@@ -1,5 +1,5 @@
 AC_PREREQ([2.63])
-AC_INIT([LALPulsar],[6.0.0.1],[lal-discuss@ligo.org])
+AC_INIT([LALPulsar],[6.0.6.1],[lal-discuss@ligo.org])
 AC_CONFIG_HEADERS([lib/config.h lib/LALPulsarConfig.h])
 AC_CONFIG_SRCDIR([lib/ComputeFstat.c])
 AC_CONFIG_AUX_DIR([gnuscripts])
@@ -20,7 +20,7 @@ AC_CONFIG_MACRO_DIR([gnuscripts])
 # 6. if any interfaces have been removed since the last public release,
 #    then set age to 0.
 AC_SUBST([LIBCURRENT],[29])
-AC_SUBST([LIBREVISION],[0])
+AC_SUBST([LIBREVISION],[3])
 AC_SUBST([LIBAGE],[0])
 AC_SUBST([LIBVERSION],[${LIBCURRENT}:${LIBREVISION}:${LIBAGE}])
 AS_CASE([${host_os}],
@@ -37,7 +37,6 @@ AC_CONFIG_FILES([ \
   debian/control \
   debian/liblalpulsar${LIBMAJOR}.install:debian/liblalpulsar.install.in \
   doxygen/Makefile \
-  doxygen/doxygen.cfg \
   include/Makefile \
   include/lal/Makefile \
   lalpulsar.pc \
@@ -86,9 +85,9 @@ AM_INIT_AUTOMAKE([ \
 ])
 
 # version requirements
-MIN_LAL_VERSION="7.3.0"
+MIN_LAL_VERSION="7.4.0"
 MIN_LALFRAME_VERSION="3.0.0"
-MIN_LALSIMULATION_VERSION="5.0.0"
+MIN_LALSIMULATION_VERSION="5.3.0"
 MIN_LALINFERENCE_VERSION="4.1.0"
 AC_SUBST([MIN_LAL_VERSION])
 AC_SUBST([MIN_LALFRAME_VERSION])
@@ -102,6 +101,7 @@ LALSUITE_ARG_VAR
 LALSUITE_CHECK_PLATFORM
 LALSUITE_CHECK_GIT_REPO
 LALSUITE_DISTCHECK_CONFIGURE_FLAGS
+LALSUITE_WITH_FALLBACK_DATA_PATH
 
 # nightly build
 LALSUITE_ENABLE_NIGHTLY
@@ -151,8 +151,8 @@ LALSUITE_PROG_COMPILERS
 LALSUITE_CHECK_SIMD
 LALPULSAR_CHECK_ALTIVEC
 
-# install only a minimal set of ephemeris files
-LALPULSAR_INSTALL_MINIMAL_EPHEM
+# choose which ephemeris files to install
+LALPULSAR_WITH_EPHEM
 
 # checks for programs
 AC_PROG_INSTALL
@@ -237,7 +237,6 @@ LALSUITE_ADD_GCC_FLAGS
 AC_SUBST([LDADD], ["\$(top_builddir)/lib/liblalpulsar.la"])
 
 # add extra preprocessor flags
-AM_CPPFLAGS="-DPKG_DATA_DIR='\"\$(pkgdatadir)/\"' ${AM_CPPFLAGS}"
 AM_CPPFLAGS="-I\$(top_builddir)/include ${AM_CPPFLAGS}"
 
 # force headers to be installed in ${includedir}/lal, ignoring library name

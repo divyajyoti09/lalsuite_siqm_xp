@@ -1,12 +1,13 @@
 # -*- mode: autoconf; -*-
 # lalsuite_build.m4 - top level build macros
 #
-# serial 170
+# serial 178
 
 # restrict which LALSUITE_... patterns can appearing in output (./configure);
 # useful for debugging problems with unexpanded LALSUITE_... Autoconf macros
 m4_pattern_forbid([^_?LALSUITE_[A-Z_]+$])
-m4_pattern_allow([^LALSUITE_(BUILD)$])
+m4_pattern_allow([^LALSUITE_(BUILD|PACKAGES)$])
+m4_pattern_allow([^LALSUITE_LIBTOOL_NO_SUPPRESS])
 
 # list of user variables; see section 4.8.1 of the Autoconf manual
 m4_define([uvar_list],[CPPFLAGS CFLAGS CXXFLAGS FCFLAGS FFLAGS LDFLAGS])
@@ -19,7 +20,8 @@ AC_DEFUN([LALSUITE_ARG_VAR],[
   AC_ARG_VAR(LAL_DATA_PATH,[Location of LAL data files])
   AC_ARG_VAR(LAL_OCTAVE_PATH,[Location of LAL octave files])
   AC_ARG_VAR(LAL_PYTHON_PATH,[Location of LAL python files])
-  AC_ARG_VAR(LALSUITE_BUILD,[Set if part of lalsuite build])
+  AC_ARG_VAR(LALSUITE_BUILD,[Set if part of LALSuite build])
+  AC_ARG_VAR(LALSUITE_PACKAGES,[List of LALSuite packages being built])
 ])
 
 m4_append([AC_INIT],[
@@ -545,6 +547,7 @@ AC_DEFUN([LALSUITE_USE_LIBTOOL],[
   # $0: Generate a libtool script for use in configure tests. Arguments
   # are added to link command in variable ${lalsuite_libtool_flags}
   AC_REQUIRE([LT_INIT])
+  AC_REQUIRE([AC_PROG_SED])
   LT_OUTPUT
   m4_append([AC_LANG(C)],[
     ac_link="./libtool --mode=link --tag=CC ${ac_link} ${lalsuite_libtool_flags}"
@@ -556,6 +559,28 @@ AC_DEFUN([LALSUITE_USE_LIBTOOL],[
   ])
   AC_LANG(_AC_LANG)
   LALSUITE_ADD_FLAGS([],[],[${lalsuite_libtool_flags}])
+  # Libtool compiles library code twice for dynamic/static linking.
+  # Errors from the 2nd compile are usually suppressed, but passing
+  # -no-suppress to libtool --mode=compile will print them. See
+  #   https://git.ligo.org/computing/helpdesk/-/issues/2851#note_658717
+  # for an example where errors appear only with static linking.
+  # Automake however provides no mechanism of passing this flag, see
+  #   https://debbugs.gnu.org/cgi/bugreport.cgi?bug=54020
+  # so the easiest alternative is to hack libtool itself as follows.
+  AS_IF([test "x${LALSUITE_LIBTOOL_NO_SUPPRESS}" != x],[
+    AC_CONFIG_COMMANDS([libtool-no-suppress-hack],[
+      AS_IF([test -f ./libtool],[
+        AS_IF([${SED} -i.before_no_suppress_hack 's/suppress_opt=yes/suppress_opt=no/' ./libtool],[
+          rm -f libtool.before_no_suppress_hack
+          AC_MSG_NOTICE([hacked ./libtool to set -no-suppress])
+        ],[
+          AC_MSG_ERROR([failed to set -no-suppress option in ./libtool])
+        ])
+      ],[
+        AC_MSG_ERROR([./libtool does not exist])
+      ])
+    ])
+  ])
   # end $0
 ])
 
@@ -939,6 +964,33 @@ AC_DEFUN([LALSUITE_ENABLE_LALAPPS],[
   )
 ])
 
+AC_DEFUN([LALSUITE_WITH_FALLBACK_DATA_PATH],[
+  AC_ARG_WITH(
+    [fallback_data_path],
+    AS_HELP_STRING([--with-fallback-data-path],[use hard-coded fallback location for LAL data path [default: $(pkgdatadir)]]),
+    [
+      AS_CASE(["${with_fallback_data_path}"],
+        [yes],[fallback_data_path='"$(pkgdatadir)"'],
+        [no],[fallback_data_path=NULL],
+        [
+          for n in `echo ${with_fallback_data_path} | sed 's|:| |g'`; do
+            AS_CASE(["${n}"],
+              ['./'*],[:],
+              ['../'*],[:],
+              ['$('*],[:],
+              [AC_MSG_ERROR([bad fallback LAL data path value '${n}' for --with-fallback-data-path])]
+            )
+          done
+          fallback_data_path="\"${with_fallback_data_path}\""
+        ]
+      )
+    ],[
+      fallback_data_path='"$(pkgdatadir)"'
+    ]
+  )
+  AM_CPPFLAGS="-DLAL_FALLBACK_DATA_PATH='${fallback_data_path}' ${AM_CPPFLAGS}"
+])
+
 AC_DEFUN([LALSUITE_WITH_CUDA],[
   AC_ARG_WITH(
     [cuda],
@@ -1065,13 +1117,12 @@ AS_IF([test "x${osx_version_check}" = "xtrue"],[
   AS_IF([test "x$build_vendor" = "xapple"],[
     AC_CHECK_PROGS([SW_VERS],[sw_vers])
     AS_IF([test "x$SW_VERS" != "x"],[
-      AC_MSG_CHECKING([Mac OS X version])
+      AC_MSG_CHECKING([macOS version])
       MACOSX_VERSION=`$SW_VERS -productVersion`
       AC_MSG_RESULT([$MACOSX_VERSION])])
-    AS_CASE(["$MACOSX_VERSION"],
-      [10.0*|10.1|10.1.*|10.2*|10.3*],AC_MSG_ERROR([This version of Mac OS X is not supported]),
-      [10.4*|10.5*|10.6*|10.7*|10.8*|10.9*|10.10*|10.11*|10.12*|10.13*|10.14*],,
-      AC_MSG_WARN([Unknown Mac OS X version]))
+      AX_COMPARE_VERSION([${MACOSX_VERSION}],[lt],[11],[
+        AC_MSG_WARN([This version of macOS is not supported by Apple])
+    ])
 ])])])
 
 AC_DEFUN([LALSUITE_CHECK_CUDA],
@@ -1134,8 +1185,10 @@ AC_DEFUN([LALSUITE_USE_DOXYGEN],[
 
   AS_IF([test "x${doxygen}" = xtrue],[
 
-    # configure Doxygen filter script
+    # configure Doxygen files
+    AC_CONFIG_FILES([doxygen/doxygen.cfg])
     AC_CONFIG_FILES([doxygen/filter],[chmod +x doxygen/filter])
+    AC_CONFIG_FILES([doxygen/make_autogen_dox],[chmod +x doxygen/make_autogen_dox])
 
     # Python is required to run some scripts
     LALSUITE_REQUIRE_PYTHON([3.5])
@@ -1188,6 +1241,7 @@ AC_DEFUN([LALSUITE_USE_DOXYGEN],[
     AC_SUBST([DOXYGEN_ENABLED_SECTIONS])
     AC_SUBST([DOXYGEN_TAGFILES],[])
     AC_SUBST([DOXYGEN_INSTALL_DIRMAP],[])
+    AC_SUBST([DOXYGEN_NAVIGATION_TABS])
     for arg in ${lalsuite_libs}; do
       AS_CASE([${arg}],
         [lalsupport],[:],[
@@ -1205,6 +1259,9 @@ AC_DEFUN([LALSUITE_USE_DOXYGEN],[
         ]
       )
     done
+    AS_IF([test "$LALSUITE_BUILD" = "true"],[
+      DOXYGEN_NAVIGATION_TABS="${LALSUITE_PACKAGES}"
+    ])
 
     # configure MathJax
     AC_SUBST([DOXYGEN_MATHJAXDIR])
@@ -1227,6 +1284,16 @@ AC_DEFUN([LALSUITE_USE_DOXYGEN],[
         DOXYGEN_MATHJAXDIR='https://cdn.mathjax.org/mathjax/latest'
         AC_MSG_NOTICE([using MathJax CDN at ${DOXYGEN_MATHJAXDIR}])
       ])
+    ])
+
+    # check for a program to convert Markdown to HTML
+    # - assumed usage: ${MARKDOWN2HTML} in.md > out.html
+    AC_MSG_NOTICE([checking for a program to convert Markdown to HTML])
+    AC_CHECK_PROGS([MARKDOWN2HTML],[pandoc markdown],[cat])
+    AS_IF([test "X${MARKDOWN2HTML}" = Xcat],[
+      AC_MSG_WARN([no Markdown to HTML converter found; Markdown in Doxygen will be rendered verbatim])
+    ],[
+      AC_MSG_NOTICE([Markdown in Doxygen will be converted to HTML using ${MARKDOWN2HTML}])
     ])
 
   ])

@@ -15,11 +15,13 @@
 config.lt
 debian/control
 doxygen/autogen.dox
+doxygen/doxygen_header.html
 doxygen/doxygen_objdb_*.tmp
 doxygen/doxygen_sqlite3.db
 doxygen/doxygen.cfg
 doxygen/filter
 doxygen/in/
+doxygen/make_autogen_dox
 doxygen/out/
 doxygen/test_doxygen.*
 lalapps-*.tar.xz

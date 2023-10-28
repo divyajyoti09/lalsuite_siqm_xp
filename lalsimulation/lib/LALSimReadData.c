@@ -59,7 +59,7 @@
 LALFILE *XLALSimReadDataFileOpen(const char *fname)
 {
     LALFILE *fp = NULL;
-    char *path = XLALFileResolvePathLong(fname, PKG_DATA_DIR);
+    char *path = XLAL_FILE_RESOLVE_PATH(fname);
     if (!path)  /* could not find file */
         XLAL_ERROR_FAIL(XLAL_EIO, "Could not find data file %s\n", fname);
     fp = XLALFileOpenRead(path);
@@ -175,7 +175,7 @@ size_t XLALSimReadDataFileNCol(double **data, size_t *ncol, LALFILE *fp)
 
         if (nrow == size) {     /* allocate more memory for data */
             size += page;
-            *data = XLALRealloc(*data, *ncol * page * sizeof(**data));
+            *data = XLALRealloc(*data, *ncol * size * sizeof(**data));
         }
 
         /* scan line for data values in each column */

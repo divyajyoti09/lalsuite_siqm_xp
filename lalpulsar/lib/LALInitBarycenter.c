@@ -60,6 +60,9 @@ int XLALCheckEphemerisRanges ( const EphemerisVector *ephemEarth, REAL8 avg[3], 
 
 /* ========== exported API ========== */
 
+/// \addtogroup LALBarycenter_h
+/// @{
+
 /**
  * An XLAL interface for reading a time correction file containing a table
  * of values for converting between Terrestrial Time TT (or TDT) to either
@@ -94,7 +97,7 @@ XLALInitTimeCorrections ( const CHAR *timeCorrectionFile /**< File containing Ea
     XLAL_ERROR_NULL( XLAL_EINVAL, "Invalid NULL input for 'timeCorrectionFile'\n" );
 
   char *fname_path;
-  XLAL_CHECK_NULL ( (fname_path = XLALPulsarFileResolvePath ( timeCorrectionFile )) != NULL, XLAL_EINVAL );
+  XLAL_CHECK_NULL ( (fname_path = XLAL_FILE_RESOLVE_PATH( timeCorrectionFile )) != NULL, XLAL_EINVAL );
 
   /* read in file with XLALParseDataFile to ignore comment header lines */
   if ( XLALParseDataFile ( &flines, fname_path ) != XLAL_SUCCESS ) {
@@ -193,8 +196,8 @@ XLALDestroyTimeCorrectionData ( TimeCorrectionData *tcd )
  * (actually, a little more than one year, to deal
  * with overlaps).  The first line of each table summarizes
  * what is in it. Subsequent lines give the time (GPS) and the
- * Earth's position \f$(x,y,z)\f$,
- * velocity \f$(v_x, v_y, v_z)\f$, and acceleration \f$(a_x, a_y, a_z)\f$
+ * Earth's position \f$ (x,y,z) \f$ ,
+ * velocity \f$ (v_x, v_y, v_z) \f$ , and acceleration \f$ (a_x, a_y, a_z) \f$ 
  * at that instant.  All in units of seconds; e.g. positions have
  * units of seconds, and accelerations have units 1/sec.
  *
@@ -441,14 +444,15 @@ XLALDestroyEphemerisVector ( EphemerisVector *ephemV )
 } /* XLALDestroyEphemerisVector() */
 
 
-/** Simple wrapper to XLALFileResolvePathLong(), using hardcoded fallbackdir=PKG_DATA_DIR
- */
+/** \cond DONT_DOXYGEN */
+/* Simple wrapper to XLAL_FILE_RESOLVE_PATH(), using hardcoded fallbackdir for LALPulsar
+   Use of XLAL_FILE_RESOLVE_PATH() directly is preferred; kept for ABI backward compatibility */
 char *
-XLALPulsarFileResolvePath ( const char *fname	  //!< [in] filename or file-path to resolve
-                            )
+XLALPulsarFileResolvePath ( const char *fname )
 {
-  return XLALFileResolvePathLong ( fname, PKG_DATA_DIR );
+  return XLAL_FILE_RESOLVE_PATH( fname );
 } // XLALPulsarFileResolvePath()
+/** \endcond */
 
 /**
  * XLAL function to read ephemeris-data from one file, returning a EphemerisVector.
@@ -458,8 +462,7 @@ XLALPulsarFileResolvePath ( const char *fname	  //!< [in] filename or file-path 
  * to read "<fname>.gz" instead. This allows us to handle gzip-compressed ephemeris-files without having
  * to worry about the detailed filename extension used in the case of compression.
  *
- * NOTE2: files are searches first locally, then in LAL_DATA_PATH, and finally in PKG_DATA_DIR
- * using XLALPulsarFileResolvePath()
+ * NOTE2: files are searched using XLAL_FILE_RESOLVE_PATH()
  */
 EphemerisVector *
 XLALReadEphemerisFile ( const CHAR *fname )
@@ -470,13 +473,13 @@ XLALReadEphemerisFile ( const CHAR *fname )
   char *fname_path = NULL;
 
   // first check if "<fname>" can be resolved ...
-  if ( (fname_path = XLALPulsarFileResolvePath ( fname )) == NULL )
+  if ( (fname_path = XLAL_FILE_RESOLVE_PATH( fname )) == NULL )
     {
       // if not, check if we can find "<fname>.gz" instead ...
       char *fname_gz;
       XLAL_CHECK_NULL ( (fname_gz = XLALMalloc ( strlen(fname) + strlen(".gz") + 1 )) != NULL, XLAL_ENOMEM );
       sprintf ( fname_gz, "%s.gz", fname );
-      if ( (fname_path = XLALPulsarFileResolvePath ( fname_gz )) == NULL )
+      if ( (fname_path = XLAL_FILE_RESOLVE_PATH( fname_gz )) == NULL )
         {
           XLALFree ( fname_gz );
           XLAL_ERROR_NULL ( XLAL_EINVAL, "Failed to find ephemeris-file '%s[.gz]'\n", fname );
@@ -654,3 +657,5 @@ XLALCheckEphemerisRanges ( const EphemerisVector *ephemV, REAL8 avg[3], REAL8 ra
   return XLAL_SUCCESS;
 
 } /* XLALCheckEphemerisRanges() */
+
+/// @}

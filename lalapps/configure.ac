@@ -1,5 +1,5 @@
 AC_PREREQ([2.63])
-AC_INIT([LALApps],[9.2.0.1],[lal-discuss@ligo.org])
+AC_INIT([LALApps],[9.2.2.1],[lal-discuss@ligo.org])
 AC_CONFIG_HEADERS([src/config.h])
 AC_CONFIG_SRCDIR([src/lalapps/version2.c.in])
 AC_CONFIG_AUX_DIR([gnuscripts])
@@ -12,7 +12,6 @@ AC_CONFIG_FILES([\
   debian/Makefile \
   debian/control \
   doxygen/Makefile \
-  doxygen/doxygen.cfg \
   lalapps.spec \
   man/Makefile \
   src/Makefile \
@@ -43,10 +42,10 @@ AM_INIT_AUTOMAKE([ \
 
 # version requirements
 MIN_FRAMEL_VERSION="8.39.2"
-MIN_LAL_VERSION="7.3.0"
+MIN_LAL_VERSION="7.4.0"
 MIN_LALFRAME_VERSION="3.0.0"
 MIN_LALMETAIO_VERSION="4.0.0"
-MIN_LALSIMULATION_VERSION="5.0.0"
+MIN_LALSIMULATION_VERSION="5.3.0"
 MIN_LALBURST_VERSION="2.0.0"
 MIN_LALINSPIRAL_VERSION="4.0.0"
 MIN_LALINFERENCE_VERSION="4.1.0"
@@ -74,6 +73,7 @@ LALSUITE_ARG_VAR
 LALSUITE_CHECK_PLATFORM
 LALSUITE_CHECK_GIT_REPO
 LALSUITE_DISTCHECK_CONFIGURE_FLAGS
+LALSUITE_WITH_FALLBACK_DATA_PATH
 
 LALSUITE_ENABLE_GCC_FLAGS
 LALSUITE_ENABLE_STRICT_DEFS
@@ -259,7 +259,6 @@ AC_DEFINE_UNQUOTED([PREFIX],["$prefix"],[Install prefix])
 LALSUITE_ADD_GCC_FLAGS
 
 # add extra preprocessor flags
-AM_CPPFLAGS="-DPKG_DATA_DIR='\"\$(pkgdatadir)/\"' ${AM_CPPFLAGS}"
 AM_CPPFLAGS="-I\$(top_builddir)/src/lalapps ${AM_CPPFLAGS}"
 AM_CPPFLAGS="-I\$(top_srcdir)/src/lalapps ${AM_CPPFLAGS}"
 AM_CPPFLAGS="-I\$(top_srcdir)/src ${AM_CPPFLAGS}"

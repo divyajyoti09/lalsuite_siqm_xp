@@ -4,9 +4,11 @@ MOSTLYCLEANFILES =
 EXTRA_DIST =
 include $(top_srcdir)/gnuscripts/lalsuite_top.am
 
+EXTRA_DIST += CONTRIBUTING.md
+
 ACLOCAL_AMFLAGS = -I gnuscripts
 
-SUBDIRS = @subdirs@ wheel
+SUBDIRS = @subdirs@ doxygen wheel
 
 .PHONY: wheel
 wheel:
@@ -24,6 +26,11 @@ $(ACLOCAL_M4): $(am__aclocal_m4_deps) $(lalsuite_package_configure_deps)
 # exports) are propagated to the library-level configurations. See Redmine issue #728.
 $(top_builddir)/config.status: $(top_srcdir)/configure $(CONFIG_STATUS_DEPENDENCIES)
 	$(SHELL) $(top_srcdir)/configure $(ac_configure_args)
+
+BUILT_SOURCES += AUTHORS
+MOSTLYCLEANFILES += AUTHORS
+AUTHORS: $(lalsuite_package_AUTHORS_deps)
+	$(AM_V_GEN)cat $(lalsuite_package_AUTHORS_deps) | LC_ALL=C sort | uniq > $@.tmp && mv -f $@.tmp $@
 
 .PHONY: cscopelist-subdirs
 cscopelist-am: cscopelist-subdirs
@@ -45,20 +52,12 @@ $(PACKAGE)rc: Makefile
 
 if DOXYGEN
 
-html-local: Makefile $(CONFIG_CLEAN_FILES)
-	$(AM_V_at)set -e; \
-	echo "$(subdir)/Makefile: Doxygen documentation was built successfully!"; \
-	echo "$(subdir)/Makefile: $(PACKAGE_NAME) main page is at file://$(abs_builddir)/index.html"
+html-local:
+	@echo "$(subdir)/Makefile: Doxygen documentation was built successfully!"; \
+	echo "$(subdir)/Makefile: $(PACKAGE_NAME) main page is at file://$(abs_builddir)/doxygen/out/index.html"
 
-install-html-local: html-local
-	$(AM_V_at)set -e; \
-	echo " $(MKDIR_P) '$(DESTDIR)$(htmldir)'"; \
-	$(MKDIR_P) "$(DESTDIR)$(htmldir)"; \
-	echo " $(INSTALL_DATA) index.html '$(DESTDIR)$(htmldir)/index.html'"; \
-	$(SED) -e 's|\(lal[a-z]*\)/doxygen/out|../\1|g' index.html > $@.tmp; \
-	$(INSTALL_DATA) $@.tmp "$(DESTDIR)$(htmldir)/index.html"; \
-	rm -f $@.tmp; \
-	echo "$(subdir)/Makefile: Doxygen documentation was installed successfully!"; \
+install-html-local:
+	@echo "$(subdir)/Makefile: Doxygen documentation was installed successfully!"; \
 	echo "$(subdir)/Makefile: installed $(PACKAGE_NAME) main page is at file://$(DESTDIR)$(htmldir)/index.html"
 
 uninstall-local:
@@ -71,8 +70,23 @@ update-authors:
 	$(AM_V_at)cd $(top_srcdir); \
 	echo "Updating .mailmap entries"; \
 	./common/maintainer-scripts/update_mailmap || exit 1; \
-	cd $(top_srcdir); for subdir in @subdirs@; do \
+	for subdir in @subdirs@; do \
 		echo "Updating authors of $${subdir}"; \
 		./common/maintainer-scripts/update_authors $${subdir} || exit 1; \
 	done; \
-	git diff --exit-code -- .mailmap lal*/AUTHORS
+	if git diff --exit-code -- .mailmap lal*/AUTHORS; then \
+		echo "------------------------------------------------------------------------"; \
+		echo "The LALSuite author lists are up to date."; \
+		echo "------------------------------------------------------------------------"; \
+		exit 0; \
+	fi; \
+	filestocommit=`git diff --name-only -- .mailmap lal*/AUTHORS | xargs echo`; \
+	echo "------------------------------------------------------------------------"; \
+	echo "The LALSuite author files are incomplete; see the above diff."; \
+	echo ""; \
+	echo "To fix this, run these commands from the top-level of the Git repo:"; \
+	echo ""; \
+	echo "\$$ git commit -m 'Update authors' $$filestocommit"; \
+	echo "\$$ make update-authors"; \
+	echo "------------------------------------------------------------------------"; \
+	exit 1

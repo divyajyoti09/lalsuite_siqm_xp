@@ -117,7 +117,53 @@ EOSDATAFILES = \
 	LALSimNeutronStarEOS_SLY2.dat \
 	LALSimNeutronStarEOS_SLY230A.dat \
 	LALSimNeutronStarEOS_SLY9.dat \
-	LALSimNeutronStarEOS_HQC18.dat
+	LALSimNeutronStarEOS_HQC18.dat \
+	LALSimNeutronStarEOS_GMSR_BSK14_BSK24.dat \
+	LALSimNeutronStarEOS_GMSR_DHSL59_BSK24.dat \
+	LALSimNeutronStarEOS_GMSR_DHSL69_BSK24.dat \
+	LALSimNeutronStarEOS_GMSR_F0_BSK24.dat \
+	LALSimNeutronStarEOS_GMSR_H1_BSK24.dat \
+	LALSimNeutronStarEOS_GMSR_H2_BSK24.dat \
+	LALSimNeutronStarEOS_GMSR_H3_BSK24.dat \
+	LALSimNeutronStarEOS_GMSR_H4_BSK24.dat \
+	LALSimNeutronStarEOS_GMSR_H5_BSK24.dat \
+	LALSimNeutronStarEOS_GMSR_LN55_BSK24.dat \
+	LALSimNeutronStarEOS_GMSR_SLY5_BSK24.dat \
+	LALSimNeutronStarEOS_GPPVA_DD2_BSK24.dat \
+	LALSimNeutronStarEOS_GPPVA_DDME2_BSK24.dat \
+	LALSimNeutronStarEOS_GPPVA_FSU2_BSK24.dat \
+	LALSimNeutronStarEOS_GPPVA_FSU2H_BSK24.dat \
+	LALSimNeutronStarEOS_GPPVA_NL3WRL55_BSK24.dat \
+	LALSimNeutronStarEOS_KDE0V_BSK24.dat \
+	LALSimNeutronStarEOS_KDE0V1_BSK24.dat \
+	LALSimNeutronStarEOS_PCP_BSK24_BSK24.dat \
+	LALSimNeutronStarEOS_RG_SLY4_BSK24.dat \
+	LALSimNeutronStarEOS_RS_BSK24.dat \
+	LALSimNeutronStarEOS_SK255_BSK24.dat \
+	LALSimNeutronStarEOS_SKA_BSK24.dat \
+	LALSimNeutronStarEOS_SKB_BSK24.dat \
+	LALSimNeutronStarEOS_SKI2_BSK24.dat \
+	LALSimNeutronStarEOS_SKI3_BSK24.dat \
+	LALSimNeutronStarEOS_SKI4_BSK24.dat \
+	LALSimNeutronStarEOS_SKI6_BSK24.dat \
+	LALSimNeutronStarEOS_SKOP_BSK24.dat \
+	LALSimNeutronStarEOS_SLY2_BSK24.dat \
+	LALSimNeutronStarEOS_SLY9_BSK24.dat \
+	LALSimNeutronStarEOS_SLY230A_BSK24.dat \
+	LALSimNeutronStarEOS_XMLSLZ_DDLZ1_BSK24.dat \
+	LALSimNeutronStarEOS_XMLSLZ_DDME2_BSK24.dat \
+	LALSimNeutronStarEOS_XMLSLZ_DDMEX_BSK24.dat \
+	LALSimNeutronStarEOS_XMLSLZ_GM1_BSK24.dat \
+	LALSimNeutronStarEOS_XMLSLZ_MTVTC_BSK24.dat \
+	LALSimNeutronStarEOS_XMLSLZ_NL3_BSK24.dat \
+	LALSimNeutronStarEOS_XMLSLZ_PKDD_BSK24.dat \
+	LALSimNeutronStarEOS_XMLSLZ_TM1_BSK24.dat \
+	LALSimNeutronStarEOS_XMLSLZ_TW99_BSK24.dat \
+	LALSimNeutronStarEOS_ABHT_QMC_RMF1_META.dat \
+	LALSimNeutronStarEOS_ABHT_QMC_RMF2_META.dat \
+	LALSimNeutronStarEOS_ABHT_QMC_RMF3_META.dat \
+	LALSimNeutronStarEOS_ABHT_QMC_RMF4_META.dat \
+	LALSimNeutronStarEOS_BL_CHIRAL_META.dat
 
 pkginclude_HEADERS = \
 	LALSimBlackHoleRingdown.h \
@@ -129,6 +175,7 @@ pkginclude_HEADERS = \
 	LALSimInspiral.h \
 	LALSimInspiralPrecess.h \
 	LALSimInspiralTestGRParams.h \
+	LALSimInspiralTestingGRCorrections.h \
 	LALSimInspiralWaveformCache.h \
 	LALSimInspiralWaveformFlags.h \
 	LALSimInspiralWaveformParams.h \
@@ -196,6 +243,20 @@ noinst_HEADERS = \
 	LALSimIMRPhenomX_ringdown.h \
 	LALSimIMRPhenomX_precession.c \
 	LALSimIMRPhenomX_precession.h \
+	LALSimIMRPhenomX_PNR.c \
+	LALSimIMRPhenomX_PNR.h \
+	LALSimIMRPhenomX_PNR_internals.c \
+	LALSimIMRPhenomX_PNR_internals.h \
+	LALSimIMRPhenomX_PNR_deviations.c \
+	LALSimIMRPhenomX_PNR_deviations.h \
+	LALSimIMRPhenomX_PNR_alpha.c \
+	LALSimIMRPhenomX_PNR_alpha.h \
+	LALSimIMRPhenomX_PNR_beta.c \
+	LALSimIMRPhenomX_PNR_beta.h \
+	LALSimIMRPhenomX_PNR_coefficients.c \
+	LALSimIMRPhenomX_PNR_coefficients.h \
+	LALSimIMRPhenomX_AntisymmetricWaveform.c \
+	LALSimIMRPhenomX_AntisymmetricWaveform.h \
 	LALSimIMRPhenomXHM.h \
 	LALSimIMRPhenomXHM_internals.c \
 	LALSimIMRPhenomXHM_internals.h \
@@ -245,9 +306,11 @@ noinst_HEADERS = \
 	LALSimIMRSpinEOBInitialConditions.c \
 	LALSimIMRSpinEOBInitialConditionsPrec.c \
 	LALSimTEOBResumS.h \
+	LALSimInspiralGenerator_private.h \
 	LALSimInspiralPNCoefficients.c \
 	LALSimInspiralTaylorF2Ecc.c \
 	LALSimInspiraldEnergyFlux.c \
+	LALSimInspiralWaveformParams_common.c \
 	LALSimNeutronStarEOSPiecewisePolytrope.c \
 	LALSimNeutronStarEOSTabular.c \
 	LALSimNeutronStarEOSSpectralDecomposition.c \
@@ -263,10 +326,19 @@ noinst_HEADERS = \
 	LALSimInspiralFDPrecAngles_internals.h \
 	LALSimNRSurRemnantUtils.h \
 	LALSimNRSur7dq4Remnant.h \
-	LALSimNRSur3dq8Remnant.h
+	LALSimNRSur3dq8Remnant.h \
+	LALSimInspiralEOBPostAdiabatic.c \
+	LALSimInspiralEOBPANumericalFuncs.c \
+	LALSimInspiralEOBPAAuxiliaryFuncs.c \
+	LALSimIMRSpinEOBFactorizedFlux_PA.c \
+	LALSimIMRSpinEOBFactorizedWaveform_PA.c \
+	LALSimInspiralEOBPostAdiabatic.h \
 	$(END_OF_LIST)
 
 lib_LTLIBRARIES = liblalsimulation.la
+if SWIG_BUILD_PYTHON
+noinst_LTLIBRARIES = liblalsimulation-swig.la
+endif
 
 liblalsimulation_la_SOURCES = \
 	LALSimBlackHoleRingdownPrec.c \
@@ -285,6 +357,7 @@ liblalsimulation_la_SOURCES = \
 	LALSimIMRSEOBNRv2ChirpTime.c \
 	LALSimIMRSEOBNRv4ROM.c \
 	LALSimIMRSEOBNRv4HMROM.c \
+	LALSimIMRSEOBNRv5HMROM.c \
 	LALSimIMRSEOBNRv4ROM_NRTidal.c \
 	LALSimIMRSEOBNRv4ROM_NSBHAmplitudeCorrection.c \
 	LALSimBHNSRemnantFits.c \
@@ -314,6 +387,7 @@ liblalsimulation_la_SOURCES = \
 	LALSimPhenSpinRingDown.c \
 	LALSimInspiralWaveformFlags.c \
 	LALSimInspiralTestGRParams.c \
+	LALSimInspiralTestingGRCorrections.c \
 	LALSimInspiralWaveformParams.c \
 	LALSimInspiralPrecess.c \
 	LALSimInspiral.c \
@@ -357,6 +431,8 @@ liblalsimulation_la_SOURCES = \
 	LALSimUtils.c \
 	check_series_macros.h \
 	check_waveform_macros.h \
+	rotation_macros.h \
+	fix_reference_frequency_macro.h \
 	unicorn.xpm \
 	LALSimInspiralHGimri.c \
 	LALSimFindAttachTime.c \
@@ -372,7 +448,15 @@ liblalsimulation_la_SOURCES = \
 	LALSimInspiralFDPrecAngles.c \
 	LALSimNRSurRemnantUtils.c \
 	LALSimNRSur7dq4Remnant.c \
-	LALSimNRSur3dq8Remnant.c
+	LALSimNRSur3dq8Remnant.c \
+	LALSimInspiralGeneratorConditioning.c \
+	LALSimInspiralGeneratorLegacy.c \
+	LALSimInspiralGeneratorPython.c \
+	LALSimInspiralEOBPostAdiabatic.c \
+	LALSimInspiralEOBPANumericalFuncs.c \
+	LALSimInspiralEOBPAAuxiliaryFuncs.c \
+	LALSimIMRSpinEOBFactorizedWaveform_PA.c \
+	$(END_OF_LIST)
 
 nodist_liblalsimulation_la_SOURCES = \
 	LALSimulationBuildInfoHeader.h \
@@ -380,6 +464,12 @@ nodist_liblalsimulation_la_SOURCES = \
 	$(END_OF_LIST)
 
 liblalsimulation_la_LDFLAGS = $(AM_LDFLAGS) -version-info $(LIBVERSION)
+liblalsimulation_la_LIBADD = $(AM_LIBADD) $(PYTHON3_EMBED_LIBADD)
+if SWIG_BUILD_PYTHON
+nodist_liblalsimulation_swig_la_SOURCES = $(nodist_liblalsimulation_la_SOURCES)
+liblalsimulation_swig_la_SOURCES = $(liblalsimulation_la_SOURCES)
+liblalsimulation_swig_la_LDFLAGS = $(AM_LDFLAGS) -version-info $(LIBVERSION)
+endif
 
 pkgdata_DATA = \
 	$(NOISEPSDFILES) \

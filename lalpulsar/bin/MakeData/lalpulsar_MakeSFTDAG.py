@@ -78,7 +78,10 @@ def writeToDag(dagFID, nodeCount, startTimeThisNode, endTimeThisNode, site, args
     startTimeDatafind = startTimeThisNode - args.extra_datafind_time
     endTimeDatafind = endTimeThisNode + args.extra_datafind_time
     tagStringOut = f'{args.tag_string}_{nodeCount}'
-    cacheFile = f'{args.cache_path}/{site}-{startTimeDatafind}-{endTimeDatafind}.cache'
+    if args.cache_file:
+        cacheFile = args.cache_file
+    else:
+        cacheFile = f'{args.cache_path}/{site}-{startTimeDatafind}-{endTimeDatafind}.cache'
 
     argList = []
     argList.append(f'-O {args.observing_run}')
@@ -89,11 +92,11 @@ def writeToDag(dagFID, nodeCount, startTimeThisNode, endTimeThisNode, site, args
         argList.append(f'-X {args.misc_desc}')
     argList.append(f'-f {args.filter_knee_freq}')
     argList.append(f'-t {args.time_baseline}')
-    argList.append(f'-p {args.output_sft_path}')
+    argList.append(f"-p {','.join(args.output_sft_path)}")
     argList.append(f'-C {cacheFile}')
     argList.append(f'-s {startTimeThisNode}')
     argList.append(f'-e {endTimeThisNode}')
-    argList.append(f'-N {args.channel_name}')
+    argList.append(f"-N {','.join(args.channel_name)}")
     argList.append(f'-F {args.start_freq}')
     argList.append(f'-B {args.band}')
     if args.comment_field:
@@ -108,13 +111,18 @@ def writeToDag(dagFID, nodeCount, startTimeThisNode, endTimeThisNode, site, args
         argList.append(f'-P {args.overlap_fraction}')
     argStr = ' '.join(argList)
 
-    dagFID.write(f'JOB {datafind} datafind.sub\n')
-    dagFID.write(f'RETRY {datafind} 10\n')
-    dagFID.write(f'VARS {datafind} gpsstarttime="{startTimeDatafind}" gpsendtime="{endTimeDatafind}" observatory="{site}" inputdatatype="{args.input_data_type}" tagstring="{tagStringOut}"\n')
-    dagFID.write(f'JOB {MakeSFTs} MakeSFTs.sub\n')
-    dagFID.write(f'RETRY {MakeSFTs} 5\n')
+    # gw_data_find job
+    if not args.cache_file:
+        dagFID.write(f"JOB {datafind} {os.path.join(os.path.dirname(dagFID.name), 'datafind.sub')}\n")
+        dagFID.write(f'RETRY {datafind} 1\n')
+        dagFID.write(f'VARS {datafind} gpsstarttime="{startTimeDatafind}" gpsendtime="{endTimeDatafind}" observatory="{site}" inputdatatype="{args.input_data_type}" tagstring="{tagStringOut}"\n')
+
+    # MakeSFT job
+    dagFID.write(f"JOB {MakeSFTs} {os.path.join(os.path.dirname(dagFID.name), 'MakeSFTs.sub')}\n")
+    dagFID.write(f'RETRY {MakeSFTs} 1\n')
     dagFID.write(f'VARS {MakeSFTs} argList="{argStr}" tagstring="{tagStringOut}"\n')
-    dagFID.write(f'PARENT {datafind} CHILD {MakeSFTs}\n')
+    if not args.cache_file:
+        dagFID.write(f'PARENT {datafind} CHILD {MakeSFTs}\n')
 
 
 #
@@ -171,18 +179,21 @@ parser.add_argument('-k', '--filter-knee-freq', required=True, type=int,
                     data before generating SFTs')
 parser.add_argument('-T', '--time-baseline', required=True, type=int,
                     help='time baseline of SFTs  (e.g., 60 or 1800 seconds)')
-parser.add_argument('-p', '--output-sft-path', required=True, type=str,
+parser.add_argument('-p', '--output-sft-path', nargs='+', type=str,
                     help='path to output SFTs')
 parser.add_argument('-C', '--cache-path', type=str, default='cache',
                     help='path to cache files that will be produced by \
                     gw_data_find (default is $PWD/cache; this directory is \
                     created if it does not exist and must agree with that \
                     given in .sub files)')
+parser.add_argument('-e', '--cache-file', type=str,
+                    help='path and filename to frame cache file to use instead \
+                    of gw_data_find')
 parser.add_argument('-o', '--log-path', type=str, default='logs',
                     help='path to log, output, and error files (default \
                     is $PWD/logs; this directory is created if it does not \
                     exist and usually should be under a local file system)')
-parser.add_argument('-N', '--channel-name', required=True, type=str,
+parser.add_argument('-N', '--channel-name', nargs='+', type=str,
                     help='name of input time-domain channel to read from \
                     frames')
 parser.add_argument('-c', '--comment-field', type=str,
@@ -194,7 +205,8 @@ parser.add_argument('-B', '--band', type=int, default=1990,
 parser.add_argument('-w', '--window-type', type=str,
                     help='type of windowing of time-domain to do \
                     before generating SFTs, e.g. "rectangular", \
-                    "hann", "tukey:<parameter>"')
+                    "hann", "tukey:<beta in [0,1], required>"; \
+                    if unspecified use lalpulsar_MakeSFTs defaults')
 parser.add_argument('-P', '--overlap-fraction', type=float, default=0,
                     help='overlap fraction (for use with windows; e.g., use \
                     --overlap-fraction 0.5 with --window-type hann windows)')
@@ -312,6 +324,10 @@ if args.start_freq + args.band >= 8192.0:
 if args.max_num_per_node <= 0:
     raise argparse.error('--max-num-per-node must be > 0')
 
+if len(args.channel_name) != len(args.output_sft_path) and len(args.output_sft_path) != 1:
+    raise argparse.error('--channel-name and --output-sft-path must be the '
+                         'same length or --output-sft-path must be length of 1')
+
 # Set the data find executable and lalpulsar_MakeSFTs executable
 dataFindExe = 'gw_data_find'
 if args.datafind_path:
@@ -338,8 +354,9 @@ else:
 # try and make a directory to store the cache files and job logs
 try: os.mkdir(args.log_path)
 except: pass
-try: os.mkdir(args.cache_path)
-except: pass
+if not args.cache_file:
+    try: os.mkdir(args.cache_path)
+    except: pass
 
 # Check if list of nodes is given, on which to output SFTs.
 nodeList = []
@@ -421,7 +438,7 @@ else:
 # END if (args.segment_file != None)
 
 # Get the IFO site, which is the first letter of the channel name.
-site = args.channel_name[0]
+site = args.channel_name[0][0]
 
 # initialize count of nodes
 nodeCount = 0
@@ -433,33 +450,31 @@ datafind_sub = os.path.join(path_to_dag_file, 'datafind.sub')
 makesfts_sub = os.path.join(path_to_dag_file, 'MakeSFTs.sub')
 
 # create datafind.sub
-with open(datafind_sub, 'w') as datafindFID:
-    datafindLogFile = '{}/datafind_{}.log'.format(args.log_path,
-                                                  dag_filename)
-    datafindFID.write('universe = vanilla\n')
-    datafindFID.write('executable = {}\n'.format(dataFindExe))
-    if not args.datafind_match:
-        dataFindMatchString = ''
-    else:
-        dataFindMatchString = '--match {}'.format(args.datafind_match)
-    datafindFID.write('arguments = -r $ENV(LIGO_DATAFIND_SERVER) ')
-    datafindFID.write('--observatory $(observatory) --url-type file ')
-    datafindFID.write('--gps-start-time $(gpsstarttime) ')
-    datafindFID.write('--gps-end-time $(gpsendtime) --lal-cache ')
-    datafindFID.write('--type $(inputdatatype) {}\n'.format(
-        dataFindMatchString))
-    datafindFID.write('getenv = True\n')
-    datafindFID.write('request_disk = 5MB\n')
-    datafindFID.write('accounting_group = {}\n'.format(args.accounting_group))
-    datafindFID.write('accounting_group_user = {}\n'.format(
-        args.accounting_group_user))
-    datafindFID.write('log = {}\n'.format(datafindLogFile))
-    datafindFID.write('error = {}/datafind_$(tagstring).err\n'.format(
-        args.log_path))
-    datafindFID.write('output = {}/'.format(args.cache_path))
-    datafindFID.write('$(observatory)-$(gpsstarttime)-$(gpsendtime).cache\n')
-    datafindFID.write('notification = never\n')
-    datafindFID.write('queue 1\n')
+if not args.cache_file:
+    with open(datafind_sub, 'w') as datafindFID:
+        datafindLogFile = f'{args.log_path}/datafind_{dag_filename}.log'
+        datafindFID.write('universe = vanilla\n')
+        datafindFID.write(f'executable = {dataFindExe}\n')
+        datafindFID.write('arguments = ')
+        datafindFID.write('--observatory $(observatory) --url-type file ')
+        datafindFID.write('--gps-start-time $(gpsstarttime) ')
+        datafindFID.write('--gps-end-time $(gpsendtime) --lal-cache --gaps ')
+        datafindFID.write(f'--type $(inputdatatype)')
+        if args.datafind_match:
+            datafindFID.write(f' --match {args.datafind_match}\n')
+        else:
+            datafindFID.write('\n')
+        datafindFID.write('getenv = *DATAFIND*, KRB5*, X509*, BEARER_TOKEN*, SCITOKEN*\n')
+        datafindFID.write('request_disk = 5MB\n')
+        datafindFID.write('request_memory = 2000MB\n')
+        datafindFID.write(f'accounting_group = {args.accounting_group}\n')
+        datafindFID.write(f'accounting_group_user = {args.accounting_group_user}\n')
+        datafindFID.write(f'log = {datafindLogFile}\n')
+        datafindFID.write(f'error = {args.log_path}/datafind_$(tagstring).err\n')
+        datafindFID.write(f'output = {args.cache_path}/')
+        datafindFID.write('$(observatory)-$(gpsstarttime)-$(gpsendtime).cache\n')
+        datafindFID.write('notification = never\n')
+        datafindFID.write('queue 1\n')
 
 # create MakeSFTs.sub
 with open(makesfts_sub, 'w') as MakeSFTsFID:
@@ -468,7 +483,6 @@ with open(makesfts_sub, 'w') as MakeSFTsFID:
     MakeSFTsFID.write('universe = vanilla\n')
     MakeSFTsFID.write('executable = {}\n'.format(makeSFTsExe))
     MakeSFTsFID.write('arguments = $(argList)\n')
-    MakeSFTsFID.write('getenv = True\n')
     MakeSFTsFID.write('accounting_group = {}\n'.format(args.accounting_group))
     MakeSFTsFID.write('accounting_group_user = {}\n'.format(
         args.accounting_group_user))

@@ -12,6 +12,7 @@
   rules:
     - !reference [.ci-compiler, rules]
     - !reference [.ci-merge-build, rules]
+    - !reference [.ci-nightly-deploy, rules]
 
 clang:12:
   extends:
@@ -44,6 +45,32 @@ clang:15:
   variables:
     CC: clang-15
     CXX: clang++-15
+    # weird bugs when compiling with CFLAGS=-O3
+    CFLAGS: "-O2"
+
+clang:16:
+  extends:
+    - .compiler-test
+  image: igwn/lalsuite-dev-clang:16
+  variables:
+    CC: clang-16
+    CXX: clang++-16
+    # weird bugs when compiling with CFLAGS=-O3
+    CFLAGS: "-O2"
+    # disable octave bindings
+    CONFIGURE_FLAGS: "--enable-doxygen --enable-swig --enable-python --disable-swig-octave"
+
+clang:17:
+  extends:
+    - .compiler-test
+  image: igwn/lalsuite-dev-clang:17
+  variables:
+    CC: clang-17
+    CXX: clang++-17
+    # weird bugs when compiling with CFLAGS=-O3
+    CFLAGS: "-O2"
+    # disable octave bindings
+    CONFIGURE_FLAGS: "--enable-doxygen --enable-swig --enable-python --disable-swig-octave"
 
 clang:dev:
   extends:
@@ -52,6 +79,10 @@ clang:dev:
   variables:
     CC: clang
     CXX: clang++
+    # weird bugs when compiling with CFLAGS=-O3
+    CFLAGS: "-O2"
+    # disable octave bindings
+    CONFIGURE_FLAGS: "--enable-doxygen --enable-swig --enable-python --disable-swig-octave"
 
 .compiler-test:gcc:
   extends:
@@ -63,11 +94,6 @@ gcc:7:
   extends:
     - .compiler-test:gcc
   image: igwn/lalsuite-dev-gcc:7
-
-gcc:8:
-  extends:
-    - .compiler-test:gcc
-  image: igwn/lalsuite-dev-gcc:8
 
 gcc:9:
   extends:
@@ -88,6 +114,13 @@ gcc:12:
   extends:
     - .compiler-test:gcc
   image: igwn/lalsuite-dev-gcc:12
+  allow_failure: true
+
+gcc:13:
+  extends:
+    - .compiler-test:gcc
+  image: igwn/lalsuite-dev-gcc:13
+  allow_failure: true
 
 cuda:
   extends:
