@@ -222,7 +222,6 @@ typedef struct tagIMRPhenomXWaveformStruct
 	REAL8 distance;
 	REAL8 inclination;
 	REAL8 beta;
-	LALDict *LALparams;
 
 	LALDict *LALparams;
 
