@@ -154,7 +154,6 @@ int IMRPhenomXSetWaveformVariables(
 
 	/* Copy model version to struct */
 	wf->IMRPhenomXInspiralPhaseVersion      = XLALSimInspiralWaveformParamsLookupPhenomXInspiralPhaseVersion(LALParams);
-	wf->LALparams = LALParams;
 	wf->IMRPhenomXIntermediatePhaseVersion  = XLALSimInspiralWaveformParamsLookupPhenomXIntermediatePhaseVersion(LALParams);
 	wf->IMRPhenomXRingdownPhaseVersion      = XLALSimInspiralWaveformParamsLookupPhenomXRingdownPhaseVersion(LALParams);
 
@@ -1052,8 +1051,6 @@ int IMRPhenomXGetPhaseCoefficients(
 	REAL8 eta3            = eta*eta2;
 
 	REAL8 delta           = pWF->delta;
-
-	LALDict *LALparams    = pWF->LALparams;
 
 	/* Pre-initialize all phenomenological coefficients */
 	pPhase->a0 = 0.0;
