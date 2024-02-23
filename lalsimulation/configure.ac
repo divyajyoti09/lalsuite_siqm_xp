@@ -154,7 +154,7 @@ LALSUITE_ENABLE_FAST_GSL
 AC_CHECK_HEADERS([gsl/gsl_errno.h],,[AC_MSG_ERROR([could not find the gsl/gsl_errno.h header])])
 
 # check for python3-embed
-PKG_CHECK_MODULES([PYTHON3_EMBED],[python3-embed],[have_python3_embed=true],[have_python3_embed=false])
+PKG_CHECK_MODULES([PYTHON3_EMBED],[python-${PYTHON_VERSION}-embed],[have_python3_embed=true],[have_python3_embed=false])
 if test "x$have_python3_embed" = xtrue; then
 
     # separate out -l and -L LIBS 
@@ -217,6 +217,9 @@ LALSUITE_USE_SWIG
 
 # configure Doxygen documentation
 LALSUITE_USE_DOXYGEN
+
+# check for pretty code formatters
+LALSUITE_PROG_PRETTY_CODE
 
 # add gcc specific flags
 LALSUITE_ADD_GCC_FLAGS
