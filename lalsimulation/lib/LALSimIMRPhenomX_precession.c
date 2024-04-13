@@ -86,7 +86,6 @@ int IMRPhenomXGetAndSetPrecessionVariables(
 
   /* Pre-cache useful powers here */
   pPrec->sqrt2   = 1.4142135623730951;
-  pWF->LALparams = lalParams;
   pPrec->sqrt5   = 2.23606797749978981;
   pPrec->sqrt6   = 2.44948974278317788;
   pPrec->sqrt7   = 2.64575131106459072;
