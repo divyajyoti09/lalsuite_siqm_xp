@@ -1773,7 +1773,7 @@ int IMRPhenomXGetPhaseCoefficients(
 	/* 2.0PN, Non-Spinning */
 	phi4NS         = ( 15293365/508032. + (27145*eta)/504. + (3085*eta2)/72. ) * powers_of_lalpi.four_thirds;
 	/* 2.0PN, Spin-Spin */
-	phi4S          = ( (-5*(316*chi1L2L*eta + chi1L2*(1 + delta - 2*eta)*(1 + 80*(qm_def1)) - chi2L2*(-1 + delta + 2*eta)*(1 + 80*(qm_def2))))/16) * powers_of_lalpi.four_thirds;
+	phi4S          = ( (-5*(81*chi1L2*(1 + delta - 2*eta) + 316*chi1L2L*eta - 81*chi2L2*(-1 + delta + 2*eta)))/16. ) * powers_of_lalpi.four_thirds;
 	
 	/* ~~ 2.5 PN ~~ */
 	phi5NS         = 0.0;
@@ -1793,7 +1793,8 @@ int IMRPhenomXGetPhaseCoefficients(
 	/* 3.0 PN, Spin-Orbit */
 	phi6S          = ( (5*(227*(chi1L + chi2L + chi1L*delta - chi2L*delta) - 156*(chi1L + chi2L)*eta)*LAL_PI)/3. ) * powers_of_lalpi.two;
 	/* 3.0 PN, Spin-Spin */
-	phi6S         += ( (5*(20*chi1L2L*(11763*eta + 12488*eta2) + chi1L2*(-268895 - 268895*delta + 546134*eta + 8344*delta*eta + 28112*eta2 - 24*(-15609 + 35404*eta + delta*(-15609 + 4186*eta) + 4032*eta2)*(qm_def1)) + chi2L2*(-268895 + 268895*delta + 546134*eta - 8344*delta*eta + 28112*eta2 + 24*(15609 - 35404*eta + delta*(-15609 + 4186*eta) - 4032*eta2)*(qm_def2))))/4032 ) * powers_of_lalpi.two;
+	phi6S         += ( (5*(20*chi1L2L*eta*(11763 + 12488*eta) + 7*chi2L2*(-15103*(-1 + delta) + 2*(-21683 + 6580*delta)*eta - 9808*eta2) -
+							7*chi1L2*(-15103*(1 + delta) + 2*(21683 + 6580*delta)*eta + 9808*eta2)))/4032. ) * powers_of_lalpi.two;
 
 	/* ~~ 3.0 PN, Log Term ~~ */
 	phi6LNS        = (-6848/63.) * powers_of_lalpi.two;
@@ -1885,6 +1886,19 @@ int IMRPhenomXGetPhaseCoefficients(
 
 	/* 4.5 PN, Log Terms */
 	pPhase->phi9L  = phi9LNS + phi9LS;
+
+
+	/* Spin Induced Quadrupole Moment test of GR modifications to the phase*/
+	if(XLALSimInspiralWaveformParamsLookupPhenomXSIQMFlag(LALparams)!=0)
+	{
+
+	/* 2.0PN, Spin-Spin */
+	phi4S          = ( (-5*(316*chi1L2L*eta + chi1L2*(1 + delta - 2*eta)*(1 + 80*(qm_def1)) - chi2L2*(-1 + delta + 2*eta)*(1 + 80*(qm_def2))))/16) * powers_of_lalpi.four_thirds;
+
+	/* 3.0 PN, Spin-Spin */
+	phi6S         += ( (5*(20*chi1L2L*(11763*eta + 12488*eta2) + chi1L2*(-268895 - 268895*delta + 546134*eta + 8344*delta*eta + 28112*eta2 - 24*(-15609 + 35404*eta + delta*(-15609 + 4186*eta) + 4032*eta2)*(qm_def1)) + chi2L2*(-268895 + 268895*delta + 546134*eta - 8344*delta*eta + 28112*eta2 + 24*(15609 - 35404*eta + delta*(-15609 + 4186*eta) - 4032*eta2)*(qm_def2))))/4032 ) * powers_of_lalpi.two;
+	
+	}
 
 
 	if(debug)
