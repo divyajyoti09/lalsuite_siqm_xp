@@ -1774,7 +1774,7 @@ int IMRPhenomXGetPhaseCoefficients(
 	phi4NS         = ( 15293365/508032. + (27145*eta)/504. + (3085*eta2)/72. ) * powers_of_lalpi.four_thirds;
 	/* 2.0PN, Spin-Spin */
 	phi4S          = ( (-5*(81*chi1L2*(1 + delta - 2*eta) + 316*chi1L2L*eta - 81*chi2L2*(-1 + delta + 2*eta)))/16. ) * powers_of_lalpi.four_thirds;
-	
+
 	/* ~~ 2.5 PN ~~ */
 	phi5NS         = 0.0;
 	phi5S          = 0.0;
