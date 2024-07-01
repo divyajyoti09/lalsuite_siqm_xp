@@ -14,22 +14,6 @@
     - !reference [.ci-merge-build, rules]
     - !reference [.ci-nightly-deploy, rules]
 
-clang:12:
-  extends:
-    - .compiler-test
-  image: igwn/lalsuite-dev-clang:12
-  variables:
-    CC: clang-12
-    CXX: clang++-12
-
-clang:13:
-  extends:
-    - .compiler-test
-  image: igwn/lalsuite-dev-clang:13
-  variables:
-    CC: clang-13
-    CXX: clang++-13
-
 clang:14:
   extends:
     - .compiler-test
@@ -67,6 +51,18 @@ clang:17:
   variables:
     CC: clang-17
     CXX: clang++-17
+    # weird bugs when compiling with CFLAGS=-O3
+    CFLAGS: "-O2"
+    # disable octave bindings
+    CONFIGURE_FLAGS: "--enable-doxygen --enable-python --enable-swig-python"
+
+clang:18:
+  extends:
+    - .compiler-test
+  image: igwn/lalsuite-dev-clang:18
+  variables:
+    CC: clang-18
+    CXX: clang++-18
     # weird bugs when compiling with CFLAGS=-O3
     CFLAGS: "-O2"
     # disable octave bindings
@@ -126,7 +122,7 @@ gcc:14:
 cuda:
   extends:
     - .compiler-test
-  image: igwn/lalsuite-dev-cuda:el7
+  image: igwn/lalsuite-dev-cuda:el8
   script:
     - ./00boot
     # test ./configure works with non-system CUDA install path
