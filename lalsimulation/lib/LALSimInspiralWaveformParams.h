@@ -99,6 +99,7 @@ int XLALSimInspiralWaveformParamsInsertPhenomXPConvention(LALDict *params, INT4 
 int XLALSimInspiralWaveformParamsInsertPhenomXPFinalSpinMod(LALDict *params, INT4 value);
 int XLALSimInspiralWaveformParamsInsertPhenomXPTransPrecessionMethod(LALDict *params, INT4 value);
 int XLALSimInspiralWaveformParamsInsertPhenomXTidalFlag(LALDict *params, INT4 value);
+int XLALSimInspiralWaveformParamsInsertPhenomXSIQMFlag(LALDict *params, INT4 value);
 int XLALSimInspiralWaveformParamsInsertPhenomXPSpinTaylorVersion(LALDict *params, const char * value);
 int XLALSimInspiralWaveformParamsInsertPhenomXPSpinTaylorCoarseFactor(LALDict *params, INT4 value);
 
@@ -375,6 +376,7 @@ INT4 XLALSimInspiralWaveformParamsLookupPhenomXPExpansionOrder(LALDict *params);
 INT4 XLALSimInspiralWaveformParamsLookupPhenomXPConvention(LALDict *params);
 INT4 XLALSimInspiralWaveformParamsLookupPhenomXPFinalSpinMod(LALDict *params);
 INT4 XLALSimInspiralWaveformParamsLookupPhenomXTidalFlag(LALDict *params);
+INT4 XLALSimInspiralWaveformParamsLookupPhenomXSIQMFlag(LALDict *params);
 const char * XLALSimInspiralWaveformParamsLookupPhenomXPSpinTaylorVersion(LALDict *params);
 INT4 XLALSimInspiralWaveformParamsLookupPhenomXPSpinTaylorCoarseFactor(LALDict *params);
 
@@ -601,6 +603,7 @@ int XLALSimInspiralWaveformParamsPhenomXPConventionIsDefault(LALDict *params);
 int XLALSimInspiralWaveformParamsPhenomXPFinalSpinModIsDefault(LALDict *params);
 int XLALSimInspiralWaveformParamsPhenomXPTransPrecessionMethodIsDefault(LALDict *params);
 int XLALSimInspiralWaveformParamsPhenomXTidalFlagIsDefault(LALDict *params);
+int XLALSimInspiralWaveformParamsPhenomXSIQMFlagIsDefault(LALDict *params);
 int XLALSimInspiralWaveformParamsPhenomXPSpinTaylorVersionIsDefault(LALDict *params);
 int XLALSimInspiralWaveformParamsPhenomXPSpinTaylorCoarseFactorIsDefault(LALDict *params);
 
