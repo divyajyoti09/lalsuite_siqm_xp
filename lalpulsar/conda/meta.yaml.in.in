@@ -196,12 +196,12 @@ outputs:
         - python-lalframe >={{ lalframe_version }}
         - python-lalinference >={{ lalinference_version }}
         - python-lalsimulation >={{ lalsimulation_version }}
-        - six
     test:
       requires:
         - mock  # [py<33]
         - pathlib  # [py<34]
         - pytest >=4.0.0a0
+        - tqdm
       source_files:
         - test/python
         - lib/*.dat.gz

@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # Copyright (C) 2014 Evan Ochsner, Frank Ohme
 #
 # This program is free software; you can redistribute it and/or modify it
@@ -23,7 +22,7 @@ import copy
 from optparse import OptionParser, OptionGroup
 from lalsimulation import git_version
 import io
-from six.moves import configparser
+import configparser
 
 NEW_DATA_STR = '######### NEW DATASET #############\n'
 
