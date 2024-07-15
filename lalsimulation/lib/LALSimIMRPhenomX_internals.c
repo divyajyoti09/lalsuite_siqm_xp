@@ -1717,6 +1717,10 @@ int IMRPhenomXGetPhaseCoefficients(
 	pPhase->phi8L  = 0.0;
 	pPhase->phi9L  = 0.0;
 
+	REAL8 qm_def1 = 1.+XLALSimInspiralWaveformParamsLookupdQuadMon1(LALparams);
+        REAL8 qm_def2 = 1.+XLALSimInspiralWaveformParamsLookupdQuadMon2(LALparams);
+
+
 	/* **** TaylorF2 PN Coefficients: Phase **** */
 
 	/*
@@ -1882,6 +1886,19 @@ int IMRPhenomXGetPhaseCoefficients(
 
 	/* 4.5 PN, Log Terms */
 	pPhase->phi9L  = phi9LNS + phi9LS;
+
+
+	/* Spin Induced Quadrupole Moment test of GR modifications to the phase*/
+	if(XLALSimInspiralWaveformParamsLookupPhenomXSIQMFlag(LALparams)!=0)
+	{
+
+	/* 2.0PN, Spin-Spin */
+	phi4S          = ( (-5*(316*chi1L2L*eta + chi1L2*(1 + delta - 2*eta)*(1 + 80*(qm_def1)) - chi2L2*(-1 + delta + 2*eta)*(1 + 80*(qm_def2))))/16) * powers_of_lalpi.four_thirds;
+
+	/* 3.0 PN, Spin-Spin */
+	phi6S         += ( (5*(20*chi1L2L*(11763*eta + 12488*eta2) + chi1L2*(-268895 - 268895*delta + 546134*eta + 8344*delta*eta + 28112*eta2 - 24*(-15609 + 35404*eta + delta*(-15609 + 4186*eta) + 4032*eta2)*(qm_def1)) + chi2L2*(-268895 + 268895*delta + 546134*eta - 8344*delta*eta + 28112*eta2 + 24*(15609 - 35404*eta + delta*(-15609 + 4186*eta) - 4032*eta2)*(qm_def2))))/4032 ) * powers_of_lalpi.two;
+	
+	}
 
 
 	if(debug)
@@ -2732,13 +2749,13 @@ double IMRPhenomX_Amplitude_22(double ff, IMRPhenomX_UsefulPowers *powers_of_f, 
 
 
 /* Function to check if the input mode array contains unsupported modes */
-INT4 check_input_mode_array(LALDict *lalParams)
+INT4 check_input_mode_array(LALDict *LALparams)
 {
 	UINT4 flagTrue = 0;
 	
-  if(lalParams == NULL) return XLAL_SUCCESS;
+  if(LALparams == NULL) return XLAL_SUCCESS;
   
-  LALValue *ModeArray = XLALSimInspiralWaveformParamsLookupModeArray(lalParams);
+  LALValue *ModeArray = XLALSimInspiralWaveformParamsLookupModeArray(LALparams);
   
   if(ModeArray!=NULL)
   {

@@ -349,6 +349,9 @@ DEFINE_INSERT_FUNC(PhenomXPSpinTaylorCoarseFactor, INT4, "SpinTaylorCoarseFactor
 /* IMRPhenomXAS_NRTidalvX */
 DEFINE_INSERT_FUNC(PhenomXTidalFlag, INT4, "PhenXTidal", 0)
 
+/* IMRPhenomX_SIQM modifications*/
+DEFINE_INSERT_FUNC(PhenomXSIQMFlag, INT4, "PhenXSIQM", 0)
+
 /* IMRPhenomXHM Parameters */
 DEFINE_INSERT_FUNC(PhenomXHMReleaseVersion, INT4, "PhenomXHMReleaseVersion", 122022)
 DEFINE_INSERT_FUNC(PhenomXHMInspiralPhaseVersion, INT4, "InsPhaseHMVersion", 122019)
@@ -1431,6 +1434,9 @@ DEFINE_LOOKUP_FUNC(PhenomXPSpinTaylorCoarseFactor, INT4, "SpinTaylorCoarseFactor
 /* IMRPhenomX_NRTidalvX Parameters */
 DEFINE_LOOKUP_FUNC(PhenomXTidalFlag, INT4, "PhenXTidal", 0)
 
+/* IMRPhenomX_SIQM modifications */
+DEFINE_LOOKUP_FUNC(PhenomXSIQMFlag, INT4, "PhenXSIQM", 0)
+
 /* IMRPhenomXHM Parameters */
 DEFINE_LOOKUP_FUNC(PhenomXHMReleaseVersion, INT4, "PhenomXHMReleaseVersion", 122022)
 DEFINE_LOOKUP_FUNC(PhenomXHMInspiralPhaseVersion, INT4, "InsPhaseHMVersion", 122019)
@@ -1656,6 +1662,9 @@ DEFINE_ISDEFAULT_FUNC(PhenomXPSpinTaylorCoarseFactor, INT4, "SpinTaylorCoarseFac
 
 /* IMRPhenomX_NRTidal Parameters */
 DEFINE_ISDEFAULT_FUNC(PhenomXTidalFlag, INT4, "PhenXTidal", 0)
+
+/* IMRPhenomX_SIQM modifications */
+DEFINE_ISDEFAULT_FUNC(PhenomXSIQMFlag, INT4, "PhenXSIQM", 0)
 
 /* IMRPhenomXHM Parameters */
 DEFINE_ISDEFAULT_FUNC(PhenomXHMReleaseVersion, INT4, "PhenomXHMReleaseVersion", 122022)
